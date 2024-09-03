@@ -105,12 +105,16 @@ class WorkerThread(QThread):
             cipher = AES.new(key, AES.MODE_CBC, iv)
             data = cipher.decrypt(ciphertext)
 
+
         except:
             return False
 
         try:
             padding = 'pkcs7'
+
             data = unpad(data, AES.block_size)
+            key.decode()
+            print(key)
             data = data.decode('utf-8')
             if self.text_know_type == 'json格式':
                 if not self.is_valid_json(data):
@@ -403,7 +407,7 @@ class WorkerThread(QThread):
 
                 self.is_use_cbc = False
                 self.aes_decrypt_cbc(key, target_str,
-                                     b'0000000000000000')
+                                     b'0123456789abcdef')
 
                 if self.is_use_cbc:
                     self.send('开始推理iv')
@@ -434,7 +438,7 @@ class WorkerThread(QThread):
 
                 self.is_use_cbc = False
                 self.des_decrypt_cbc(key, target_str,
-                                     b'00000000')
+                                     b'01234567')
                 if self.is_use_cbc:
                     self.send('开始推理iv')
 
@@ -492,9 +496,19 @@ class WorkerThread(QThread):
                         try:
                             decoded_str = decoded_str.decode('utf-8')
                             if self.text_know_type == 'json格式':
-                                if not self.is_valid_json(decoded_str.decode()):
+                                if not self.is_valid_json(decoded_str):
                                     continue
                             if self.text_know not in decoded_str:
+                                continue
+                        except UnicodeDecodeError:
+                            try:
+                                decoded_str = decoded_str.decode('gbk')
+                                if self.text_know_type == 'json格式':
+                                    if not self.is_valid_json(decoded_str):
+                                        continue
+                                if self.text_know not in decoded_str:
+                                    continue
+                            except:
                                 continue
                         except:
                             continue
@@ -512,8 +526,16 @@ class WorkerThread(QThread):
                         try:
                             decoded_str = decoded_str.decode('utf-8')
                             if self.text_know_type == 'json格式':
-                                if not self.is_valid_json(decoded_str.decode()):
+                                if not self.is_valid_json(decoded_str):
                                     continue
+                        except UnicodeDecodeError:
+                            try:
+                                decoded_str = decoded_str.decode('gbk')
+                                if self.text_know_type == 'json格式':
+                                    if not self.is_valid_json(decoded_str):
+                                        continue
+                            except:
+                                continue
                         except:
                             continue
 
@@ -536,8 +558,17 @@ class WorkerThread(QThread):
                             try:
                                 known_message = known_message.decode('utf-8')
                                 if self.text_know_type == 'json格式':
-                                    if not self.is_valid_json(known_message.decode()):
+                                    if not self.is_valid_json(known_message):
                                         continue
+
+                            except UnicodeDecodeError:
+                                try:
+                                    known_message = known_message.decode('gbk')
+                                    if self.text_know_type == 'json格式':
+                                        if not self.is_valid_json(known_message):
+                                            continue
+                                except:
+                                    continue
                             except:
                                 continue
 
@@ -561,9 +592,19 @@ class WorkerThread(QThread):
                             try:
                                 known_messagelistss = known_messagelistss.decode('utf-8')
                                 if self.text_know_type == 'json格式':
-                                    if not self.is_valid_json(known_messagelistss.decode()):
+                                    if not self.is_valid_json(known_messagelistss):
                                         continue
                                 if self.text_know not in known_messagelistss:
+                                    continue
+                            except UnicodeDecodeError:
+                                try:
+                                    known_messagelistss = known_messagelistss.decode('gbk')
+                                    if self.text_know_type == 'json格式':
+                                        if not self.is_valid_json(known_messagelistss):
+                                            continue
+                                    if self.text_know not in known_messagelistss:
+                                        continue
+                                except:
                                     continue
                             except:
                                 continue
