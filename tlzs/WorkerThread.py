@@ -114,7 +114,6 @@ class WorkerThread(QThread):
 
             data = unpad(data, AES.block_size)
             key.decode()
-            print(key)
             data = data.decode('utf-8')
             if self.text_know_type == 'json格式':
                 if not self.is_valid_json(data):
