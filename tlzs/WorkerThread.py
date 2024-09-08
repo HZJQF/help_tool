@@ -586,7 +586,7 @@ class WorkerThread(QThread):
                         if (i + 1) % max(1, len(strings) // 100) == 0 or i == len(strings) - 1:
                             self.message_log.emit(i + 1)  # 批量更新进度条
 
-                        for known_messagelistss in stringslist:
+                        for known_messagelistss in strings:
 
                             try:
                                 known_messagelistss = known_messagelistss.decode('utf-8')
