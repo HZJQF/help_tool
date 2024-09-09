@@ -44,7 +44,7 @@ class MEMORY_BASIC_INFORMATION(ctypes.Structure):
 
 class Part_Thread(QThread):
     Part_changed = pyqtSignal(str)
-    Part_end = pyqtSignal(list)
+    Part_end = pyqtSignal(dict)
     Part_log = pyqtSignal(int)
     Part_totle = pyqtSignal(int)
 
@@ -80,6 +80,8 @@ class Part_Thread(QThread):
             return []
 
         # 打开进程
+
+
 
     def open_process(self, pid):
         try:
@@ -170,13 +172,13 @@ class Part_Thread(QThread):
                     if memory:
                         self.memory_data.extend(memory)  # 将内存数据追加到 memory_data 中
 
+
+            file_dict = {}
             strings = self.process_memory_data(self.memory_data, 1024, b'[ -~\x80-\xff]{4,}', 4)
-            for i in strings:
-                if b'Dt8j9wGw%6HbxfFn' in i:
-                    print(i)
-                    print(True)
-            self.Part_end.emit(strings)
-            print(213132)
+            file_dict['strings'] =strings
+            file_dict['all_files'] =self.memory_data
+
+            self.Part_end.emit(file_dict)
 
         except Exception as e:
             self.send(f"失败！内存转储失败: {e}")
