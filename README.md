@@ -8,11 +8,11 @@
 
 1.新增rsa证书导出：快速推理所有rsa公钥私钥
 
-![image-20240909160407766](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\image-20240909160407766.png)
+![image-20240909160407766](C:\Users\Administrator\Desktop\help_tool\image-20240909160407766.png)
 
 2.新增明文搜索：根据你知道的明文匹配所有可能的明文段
 
-![image-20240909160437065](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\image-20240909160437065.png)
+![image-20240909160437065](C:\Users\Administrator\Desktop\help_tool\image-20240909160437065.png)
 
 
 
