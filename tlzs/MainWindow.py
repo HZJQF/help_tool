@@ -1,3 +1,6 @@
+import ctypes
+from ctypes import wintypes
+
 import psutil
 from PyQt5.QtGui import QIntValidator
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QComboBox, QStackedWidget, \
@@ -5,6 +8,28 @@ from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLin
 import CustomTextEdit
 import WorkerThread
 import Part_Thread
+
+PROCESS_ALL_ACCESS = 0x001F0FFF
+PROCESS_QUERY_INFORMATION = 0x0400
+PROCESS_VM_READ = 0x0010
+THREAD_SUSPEND_RESUME = 0x0002
+TH32CS_SNAPTHREAD = 0x00000004
+
+
+class THREADENTRY32(ctypes.Structure):
+    _fields_ = [
+        ("dwSize", wintypes.DWORD),
+        ("cntUsage", wintypes.DWORD),
+        ("th32ThreadID", wintypes.DWORD),
+        ("th32OwnerProcessID", wintypes.DWORD),
+        ("tpBasePri", wintypes.LONG),
+        ("tpDeltaPri", wintypes.LONG),
+        ("dwFlags", wintypes.DWORD)
+    ]
+
+    # 定义 MEMORY_BASIC_INFORMATION 结构体
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -65,7 +90,7 @@ class MainWindow(QMainWindow):
         self.groupBox = QGroupBox(self)
         self.groupBox.setTitle("哈希算法系列")
         self.groupBox2 = QGroupBox(self)
-        self.groupBox2.setTitle("其他常用算法系列")
+        self.groupBox2.setTitle("其他常用系列")
 
         self.groupBox3 = QGroupBox(self)
         self.groupBox3.setTitle("猜测可能的明文格式")
@@ -90,6 +115,9 @@ class MainWindow(QMainWindow):
         self.radio_button15 = QRadioButton("LD安卓模拟器", self)
         self.radio_button16 = QRadioButton("小程序", self)
 
+        self.radio_button17 = QRadioButton("rsa证书导出", self)
+        self.radio_button18 = QRadioButton("明文搜索", self)
+
         self.radio_button12.toggled.connect(self.on_radio_button_toggled)
         self.radio_button13.toggled.connect(self.on_radio_button_toggled)
         self.radio_button15.toggled.connect(self.on_radio_button_toggled)
@@ -105,6 +133,8 @@ class MainWindow(QMainWindow):
         self.QRadioButton_layout2.addWidget(self.radio_button7, 0, 0)
         self.QRadioButton_layout2.addWidget(self.radio_button8, 0, 1)
         self.QRadioButton_layout2.addWidget(self.radio_button9, 0, 2)
+        self.QRadioButton_layout2.addWidget(self.radio_button17, 0, 3)
+        self.QRadioButton_layout2.addWidget(self.radio_button18)
 
         self.QRadioButton_layout3.addWidget(self.radio_button10, 0, 0)
         self.QRadioButton_layout3.addWidget(self.radio_button11, 0, 1)
@@ -123,7 +153,24 @@ class MainWindow(QMainWindow):
         self.button_group.addButton(self.radio_button7)
         self.button_group.addButton(self.radio_button8)
         self.button_group.addButton(self.radio_button9)
+        self.button_group.addButton(self.radio_button17)
+        self.button_group.addButton(self.radio_button18)
         self.button_group.addButton(self.radio_button14)
+
+        self.radio_button4.toggled.connect(self.on_radio_button_toggled_suanfa)
+        self.radio_button5.toggled.connect(self.on_radio_button_toggled_suanfa)
+        self.radio_button6.toggled.connect(self.on_radio_button_toggled_suanfa)
+        self.radio_button17.toggled.connect(self.on_radio_button_toggled_suanfa)
+        self.radio_button18.toggled.connect(self.on_radio_button_toggled_suanfa)
+
+        self.radio_button1.toggled.connect(self.on_radio_button_toggled_suanfa)
+        self.radio_button2.toggled.connect(self.on_radio_button_toggled_suanfa)
+        self.radio_button3.toggled.connect(self.on_radio_button_toggled_suanfa)
+        self.radio_button7.toggled.connect(self.on_radio_button_toggled_suanfa)
+        self.radio_button8.toggled.connect(self.on_radio_button_toggled_suanfa)
+        self.radio_button9.toggled.connect(self.on_radio_button_toggled_suanfa)
+        self.radio_button14.toggled.connect(self.on_radio_button_toggled_suanfa)
+
         self.button_group2.addButton(self.radio_button10)
         self.button_group2.addButton(self.radio_button11)
         self.button_group3.addButton(self.radio_button12)
@@ -183,12 +230,16 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage("模型为空请加载模型", 5000)
             return
 
-        if not self.text_unknowedit.toPlainText():
+        if not self.button_group.checkedButton():
+            self.statusBar().showMessage("算法名为空", 5000)
+            return
+
+        if not self.button_group.checkedButton().text() == 'rsa证书导出' and not self.button_group.checkedButton().text() == '明文搜索' and not self.text_unknowedit.toPlainText():
             self.statusBar().showMessage("密文内容为空", 5000)
             return
 
-        if not self.button_group.checkedButton():
-            self.statusBar().showMessage("算法名为空", 5000)
+        if self.button_group.checkedButton().text() == '明文搜索' and not self.text_knowedit.toPlainText():
+            self.statusBar().showMessage("明文内容为空", 5000)
             return
 
         selected_button = self.button_group.checkedButton()
@@ -215,7 +266,8 @@ class MainWindow(QMainWindow):
             return
 
         self.worker = WorkerThread.WorkerThread(self.file_path, self.hash_name, self.text_knowedit.toPlainText(),
-                                   self.text_unknowedit.toPlainText(), self.button_group2.checkedButton().text())
+                                                self.text_unknowedit.toPlainText(),
+                                                self.button_group2.checkedButton().text())
         print((self.hash_name, self.text_knowedit.toPlainText(),
                self.text_unknowedit.toPlainText(), self.button_group2.checkedButton().text()))
 
@@ -324,6 +376,58 @@ class MainWindow(QMainWindow):
         self.textbox.setText('')
         self.file_path = ''
 
+    def on_radio_button_toggled_suanfa(self):
+        if not self.sender().isChecked():
+            return
+        if self.button_group.checkedButton().text() == "HMACMD5" or self.button_group.checkedButton().text() == "HMACSHA1" or self.button_group.checkedButton().text() == "HMACSHA256":
+            self.text_knowedit.setPlaceholderText("在这里输入你知道的部分明文...(不填很慢)")  # 设置占位符文本
+            return
+        if self.button_group.checkedButton().text() == "明文搜索":
+            self.text_knowedit.setPlaceholderText("在这里输入你知道的部分明文...(必填)")  # 设置占位符文本
+            return
+
+        self.text_knowedit.setPlaceholderText("在这里输入你知道的部分明文...")  # 设置占位符文本
+
+    def get_thread_handles(self, pid):
+        try:
+            snapshot = ctypes.windll.kernel32.CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0)
+            if snapshot == -1:
+                self.send("无法创建线程快照。")
+                return []
+
+            thread_entry = THREADENTRY32()
+            thread_entry.dwSize = ctypes.sizeof(THREADENTRY32)
+
+            threads = []
+            if ctypes.windll.kernel32.Thread32First(snapshot, ctypes.byref(thread_entry)):
+                while True:
+                    if thread_entry.th32OwnerProcessID == pid:
+                        threads.append(thread_entry.th32ThreadID)
+                    if not ctypes.windll.kernel32.Thread32Next(snapshot, ctypes.byref(thread_entry)):
+                        break
+
+            ctypes.windll.kernel32.CloseHandle(snapshot)
+            return threads
+        except Exception as e:
+            self.send(f"获取线程句柄时出错: {e}")
+            return []
+
+        # 打开进程
+
+    def resume_process(self, pid):
+        try:
+            thread_handles = self.get_thread_handles(pid)
+            for thread_id in thread_handles:
+                thread_handle = ctypes.windll.kernel32.OpenThread(THREAD_SUSPEND_RESUME, False, thread_id)
+                if thread_handle:
+                    ctypes.windll.kernel32.ResumeThread(thread_handle)
+                    ctypes.windll.kernel32.CloseHandle(thread_handle)
+            self.append_message(f"进程 (PID: {pid}) 已恢复。")
+        except Exception as e:
+            self.append_message(f"恢复进程时出错: {e}")
+
+        # 读取内存
+
     def loadfile(self):
         if self.button2.text() == "加载模型":
             self.button2.setText('停止加载模型')
@@ -332,6 +436,7 @@ class MainWindow(QMainWindow):
                 print(f"是运行:{self.Part_worker.isRunning()}")
 
                 self.Part_worker.terminate()
+                self.resume_process(self.pid)
 
                 print(f"是运行:{self.Part_worker.isRunning()}")
             self.progress_bar.hide()
