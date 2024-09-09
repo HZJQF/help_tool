@@ -450,28 +450,24 @@ class WorkerThread(QThread):
                 if (i + 1) % max(1, len(dump_file) // 100) == 0 or i == len(dump_file) - 1:
                     self.message_log.emit(i + 1)  # 批量更新进度条
 
-
                 try:
-                    if self.text_know.encode('utf-8') in key:
-                        self.send("\n找到明文串\n"+key.decode('utf-8'))
+                    if self.text_know.encode('utf-8') in key or self.text_know.encode('gbk') in key:
+
+                        self.send("\n找到明文串\n" + key.decode('utf-8'))
                         self.send(f"md5值：{hashlib.md5(key).hexdigest()}")
                         self.send(f"sha1值：{hashlib.sha1(key).hexdigest()}")
                         self.send(f"sha256值：{hashlib.sha256(key).hexdigest()}")
-                        isfind =True
-
+                        isfind = True
 
                 except UnicodeDecodeError:
                     try:
-                        if self.text_know.encode('gbk') in key:
-                            self.send("\n找到明文串\n"+key.decode('gbk'))
+                            self.send("\n找到明文串(gbk编码)\n" + key.decode('gbk'))
                             self.send(f"md5值：{hashlib.md5(key).hexdigest()}")
                             self.send(f"sha1值：{hashlib.sha1(key).hexdigest()}")
                             self.send(f"sha256值：{hashlib.sha256(key).hexdigest()}")
                             isfind = True
-
-
                     except:
-                            pass
+                        pass
 
             if isfind:
                 return True
