@@ -42,7 +42,7 @@ class MainWindow(QMainWindow):
 
         # 设置窗口标题和大小
         self.HOTKEY_ID = 885
-        self.shortcut_key = 'Ctrl+Shift+F'
+        self.shortcut_key = 'Ctrl+Shift+G'
         self.setWindowTitle("推理助手")
         self.setGeometry(100, 100, 800, 600)
         self.pid = None
