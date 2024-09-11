@@ -8,11 +8,11 @@
 
 1.新增加载模型全局快捷键，可以任意时刻加载模型，特别是软件进行加解密时候加载模型更加容易成功，方便分析，可以自定义快捷键，在文件选项更改。
 
-![image-20240911153015442](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\image-20240911153015442.png)
+![image-20240911153015442](image-20240911153015442.png)
 
 2.新增sm4（国密4）。
 
-![image-20240911152849812](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\image-20240911152849812.png)
+![image-20240911152849812](image-20240911152849812.png)
 
 
 
