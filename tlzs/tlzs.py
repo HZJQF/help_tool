@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import QApplication
 import qdarkstyle
 
 
+
 def main():
     app = QApplication(sys.argv)
     app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())
