@@ -5,6 +5,8 @@ import hmac
 import io
 import json
 import re
+import threading
+
 from Crypto.Cipher import DES3
 from Crypto.Cipher import DES
 from Crypto.Util.Padding import unpad
@@ -12,7 +14,7 @@ from PyQt5.QtCore import QThread, pyqtSignal
 from Crypto.Cipher import AES
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from gmssl.sm4 import CryptSM4, SM4_ENCRYPT, SM4_DECRYPT
+from gmssl.sm4 import CryptSM4, SM4_DECRYPT
 
 
 class WorkerThread(QThread):
@@ -30,6 +32,7 @@ class WorkerThread(QThread):
         self.text_know_type = text_know_type
         self.is_use_cbc = False
 
+
     def is_valid_json(self, json_string):
 
         try:
@@ -45,7 +48,6 @@ class WorkerThread(QThread):
         # 如果符合 hex 格式且长度为偶数（每2个字符表示一个字节）
         if hex_pattern.match(s) and len(s) % 2 == 0:
             try:
-                print('hex')
                 return binascii.unhexlify(s)
 
             except (binascii.Error, ValueError):
@@ -55,13 +57,11 @@ class WorkerThread(QThread):
         try:
             base64_bytes = base64.b64decode(s, validate=True)
             if base64.b64encode(base64_bytes).decode('utf-8') == s:
-                print('base64')
                 return base64_bytes
         except (binascii.Error, ValueError):
             pass
 
         # 默认将其视为明文并转为二进制
-        print('utf-8')
         return s.encode('utf-8')
 
     def sm4_decrypt_ecb(self, key, ciphertext):
@@ -485,6 +485,7 @@ class WorkerThread(QThread):
         return max_substring
 
     def find_matching_plaintext(self, dump_file, target_str, algo_input, use_hmac):
+
         all_files = dump_file.get('all_files')
         dump_file = dump_file.get('strings')
 
@@ -748,6 +749,7 @@ class WorkerThread(QThread):
 
                         if self.compute_hash(decoded_str, algo_input) == target_str:
                             self.send(f"找到匹配的明文：{decoded_str}")
+
                             return True
                 else:
                     self.message_totle.emit(len(stringslist))
@@ -757,6 +759,7 @@ class WorkerThread(QThread):
 
                         if self.compute_hash(decoded_str, algo_input) == target_str:
                             self.send(f"找到匹配的明文：{decoded_str}")
+
                             return True
             else:
                 if not self.text_know:
@@ -797,13 +800,15 @@ class WorkerThread(QThread):
     def send(self, message):
         self.message_changed.emit(f"{message}")
 
+
+
     def run(self):
+
 
         dump_file = self.file_path
         target_hash = self.text_unknow
         # 输入哈希算法类型，允许包含 HMAC 前缀
         algo_input = self.hash_name.strip().lower()
-        print(algo_input)
 
         # 检查是否使用 HMAC
         use_hmac = algo_input.startswith("hmac")
@@ -816,9 +821,9 @@ class WorkerThread(QThread):
 
         if not result:
 
-            self.send("未找到匹配的明文或密钥。")
+            self.send(f"*******未找到算法{self.hash_name}匹配的明文或密钥*******\n")
 
         else:
-            self.send("匹配成功")
+            self.send(f"*******算法{self.hash_name}匹配成功*******\n")
 
         self.message_end.emit()
