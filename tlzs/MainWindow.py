@@ -1,10 +1,12 @@
 import ctypes
-import re
+
+import threading
 from ctypes import wintypes
 
 import keyboard
 import psutil
-from PyQt5.QtCore import QTimer, Qt
+from PyQt5.QtCore import QThread
+
 from PyQt5.QtGui import QIntValidator
 from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QComboBox, QStackedWidget, \
     QGridLayout, QButtonGroup, QGroupBox, QRadioButton, QTextEdit, QProgressBar, QAction, QApplication
@@ -41,10 +43,12 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         # 设置窗口标题和大小
+        self.tt = None
         self.HOTKEY_ID = 885
         self.shortcut_key = 'Ctrl+Shift+G'
         self.setWindowTitle("推理助手")
         self.setGeometry(100, 100, 800, 600)
+        self.thread_list = []
         self.pid = None
         self.file_path = None
         self.hash_name = None
@@ -101,7 +105,6 @@ class MainWindow(QMainWindow):
 
         self.groupBox3 = QGroupBox(self)
         self.groupBox3.setTitle("猜测可能的明文格式")
-
         self.radio_button1 = QRadioButton("MD5", self)
         self.radio_button2 = QRadioButton("SHA1", self)
         self.radio_button3 = QRadioButton("SHA256", self)
@@ -111,7 +114,6 @@ class MainWindow(QMainWindow):
         self.radio_button7 = QRadioButton("AES", self)
         self.radio_button8 = QRadioButton("DES", self)
         self.radio_button9 = QRadioButton("3DES", self)
-
 
         self.radio_button10 = QRadioButton("普通格式", self)
         self.radio_button11 = QRadioButton("json格式", self)
@@ -126,7 +128,7 @@ class MainWindow(QMainWindow):
         self.radio_button17 = QRadioButton("rsa证书导出", self)
         self.radio_button18 = QRadioButton("明文搜索", self)
         self.radio_button19 = QRadioButton("SM4", self)
-
+        self.radio_button20 = QRadioButton("全部算法(不含HMAC)", self)
 
         self.radio_button12.toggled.connect(self.on_radio_button_toggled)
         self.radio_button13.toggled.connect(self.on_radio_button_toggled)
@@ -146,6 +148,7 @@ class MainWindow(QMainWindow):
         self.QRadioButton_layout2.addWidget(self.radio_button17, 0, 3)
         self.QRadioButton_layout2.addWidget(self.radio_button18)
         self.QRadioButton_layout2.addWidget(self.radio_button19)
+        self.QRadioButton_layout2.addWidget(self.radio_button20)
 
         self.QRadioButton_layout3.addWidget(self.radio_button10, 0, 0)
         self.QRadioButton_layout3.addWidget(self.radio_button11, 0, 1)
@@ -167,6 +170,7 @@ class MainWindow(QMainWindow):
         self.button_group.addButton(self.radio_button17)
         self.button_group.addButton(self.radio_button18)
         self.button_group.addButton(self.radio_button19)
+        self.button_group.addButton(self.radio_button20)
         self.button_group.addButton(self.radio_button14)
 
         self.radio_button4.toggled.connect(self.on_radio_button_toggled_suanfa)
@@ -175,6 +179,7 @@ class MainWindow(QMainWindow):
         self.radio_button17.toggled.connect(self.on_radio_button_toggled_suanfa)
         self.radio_button18.toggled.connect(self.on_radio_button_toggled_suanfa)
         self.radio_button19.toggled.connect(self.on_radio_button_toggled_suanfa)
+        self.radio_button20.toggled.connect(self.on_radio_button_toggled_suanfa)
 
         self.radio_button1.toggled.connect(self.on_radio_button_toggled_suanfa)
         self.radio_button2.toggled.connect(self.on_radio_button_toggled_suanfa)
@@ -248,7 +253,6 @@ class MainWindow(QMainWindow):
 
         self.button2.click()
 
-
     def closeEvent(self, event):
         keyboard.unhook_all()
 
@@ -274,7 +278,6 @@ class MainWindow(QMainWindow):
 
         if selected_button:
             self.hash_name = selected_button.text()
-            print("选中的按钮文本:", selected_button.text())  # 打印选中按钮的文本
         else:
             self.statusBar().showMessage("没有选中的按钮", 5000)
             return
@@ -282,35 +285,67 @@ class MainWindow(QMainWindow):
         if self.task_button.text() == "开始推理":
             self.task_button.setText('停止推理')
         else:
-            if self.worker:
-                print(f"是运行:{self.worker.isRunning()}")
 
+            if self.worker:
                 self.worker.terminate()
 
-                print(f"是运行:{self.worker.isRunning()}")
+            for thread in self.thread_list:
+                thread.terminate()
             self.progress_bar.hide()
             self.task_button.setText('开始推理')
-
             return
 
-        self.worker = WorkerThread.WorkerThread(self.file_path, self.hash_name, self.text_knowedit.toPlainText(),
-                                                self.text_unknowedit.toPlainText(),
-                                                self.button_group2.checkedButton().text())
-        print((self.hash_name, self.text_knowedit.toPlainText(),
-               self.text_unknowedit.toPlainText(), self.button_group2.checkedButton().text()))
+        if self.hash_name == "全部算法(不含HMAC)":
+            self.tt = threading.Thread(target=self.worker_thread_list, )
+            self.tt.start()
 
-        self.worker.message_changed.connect(self.append_message)
-        self.worker.message_end.connect(self.worker_end)
-        self.worker.message_log.connect(self.worker_log)
-        self.worker.message_totle.connect(self.worker_totle)
+        else:
+            self.worker = WorkerThread.WorkerThread(self.file_path, self.hash_name, self.text_knowedit.toPlainText(),
+                                                    self.text_unknowedit.toPlainText(),
+                                                    self.button_group2.checkedButton().text())
 
-        self.progress_bar.show()
+            self.worker.message_changed.connect(self.append_message)
+            self.worker.message_end.connect(self.worker_end)
+            self.worker.message_log.connect(self.worker_log)
+            self.worker.message_totle.connect(self.worker_totle)
 
-        self.worker.start()
+            self.progress_bar.show()
+
+            self.worker.start()
+
+    def worker_thread_list(self):
+        self.thread_list = []
+        hash_name_list = ['MD5', "SHA1", "SHA256", "AES", "DES", "3DES", "SM3",
+                          "SM4"]
+        self.task_button.setEnabled(False)
+        for name in hash_name_list:
+            self.append_message(f'开启{name}推理线程\n')
+            worker = WorkerThread.WorkerThread(self.file_path, name,
+                                               self.text_knowedit.toPlainText(),
+                                               self.text_unknowedit.toPlainText(),
+                                               self.button_group2.checkedButton().text(), self)
+
+            worker.message_changed.connect(self.append_message)
+            worker.message_end.connect(self.worker_end)
+            worker.message_log.connect(self.worker_log)
+            worker.message_totle.connect(self.worker_totle)
+            self.progress_bar.show()
+            worker.start()
+
+            self.thread_list.append(worker)
+        self.task_button.setEnabled(True)
 
     def worker_end(self):
+        if self.thread_list:
+            if len(self.thread_list) < 8:
+                return
+            for thread in self.thread_list:
+                if thread.isRunning():
+                    return
+
         self.task_button.setEnabled(True)
         self.progress_bar.hide()
+
         self.progress_bar.setValue(self.progress_bar.maximum())
         self.progress_bar.setValue(0)
         self.task_button.setText('开始推理')
