@@ -174,7 +174,7 @@ class Part_Thread(QThread):
 
 
             file_dict = {}
-            strings = self.process_memory_data(self.memory_data, 1024, b'[ -~\x80-\xff]{4,}', 4)
+            strings = self.process_memory_data(self.memory_data, 1024, b'[\x01-\xff]{4,}', 4)
             file_dict['strings'] =strings
             file_dict['all_files'] =self.memory_data
 
