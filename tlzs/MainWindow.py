@@ -1,15 +1,10 @@
 import ctypes
-
-import threading
 from ctypes import wintypes
-
 import keyboard
 import psutil
-from PyQt5.QtCore import QThread
-
 from PyQt5.QtGui import QIntValidator
 from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QComboBox, QStackedWidget, \
-    QGridLayout, QButtonGroup, QGroupBox, QRadioButton, QTextEdit, QProgressBar, QAction, QApplication
+    QGridLayout, QButtonGroup, QGroupBox, QRadioButton, QTextEdit, QProgressBar, QAction
 import CustomTextEdit
 import WorkerThread
 import Part_Thread
