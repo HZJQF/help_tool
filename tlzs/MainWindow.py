@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
         self.shortcut_key = 'Ctrl+Shift+G'
         self.setWindowTitle("推理助手")
         self.setGeometry(100, 100, 800, 600)
-        self.thread_list = []
+
         self.pid = None
         self.file_path = None
         self.hash_name = None
@@ -287,65 +287,49 @@ class MainWindow(QMainWindow):
         else:
 
             if self.worker:
+                self.worker.stop()
                 self.worker.terminate()
-
-            for thread in self.thread_list:
-                thread.terminate()
             self.progress_bar.hide()
             self.task_button.setText('开始推理')
             return
 
         if self.hash_name == "全部算法(不含HMAC)":
-            self.tt = threading.Thread(target=self.worker_thread_list, )
-            self.tt.start()
+            self.task_button.setEnabled(False)
+            self.worker = WorkerThread.WorkerAllThread(self.file_path, self.hash_name, self.text_knowedit.toPlainText(),
+                                                       self.text_unknowedit.toPlainText(),
+                                                       self.button_group2.checkedButton().text(), 1)
+            self.worker.message_changed.connect(self.append_message)
+            self.worker.message_end.connect(self.worker_end)
+            self.worker.message_log.connect(self.worker_log)
+            self.worker.message_totle.connect(self.worker_totle)
+            self.progress_bar.show()
+            self.worker.start()
+
 
         else:
-            self.worker = WorkerThread.WorkerThread(self.file_path, self.hash_name, self.text_knowedit.toPlainText(),
-                                                    self.text_unknowedit.toPlainText(),
-                                                    self.button_group2.checkedButton().text())
+            self.task_button.setEnabled(False)
+            self.worker = WorkerThread.WorkerAllThread(self.file_path, self.hash_name, self.text_knowedit.toPlainText(),
+                                                       self.text_unknowedit.toPlainText(),
+                                                       self.button_group2.checkedButton().text(), 0)
 
             self.worker.message_changed.connect(self.append_message)
             self.worker.message_end.connect(self.worker_end)
             self.worker.message_log.connect(self.worker_log)
             self.worker.message_totle.connect(self.worker_totle)
-
             self.progress_bar.show()
-
             self.worker.start()
 
-    def worker_thread_list(self):
-        self.thread_list = []
-        hash_name_list = ['MD5', "SHA1", "SHA256", "AES", "DES", "3DES", "SM3",
-                          "SM4"]
-        self.task_button.setEnabled(False)
-        for name in hash_name_list:
-            self.append_message(f'开启{name}推理线程\n')
-            worker = WorkerThread.WorkerThread(self.file_path, name,
-                                               self.text_knowedit.toPlainText(),
-                                               self.text_unknowedit.toPlainText(),
-                                               self.button_group2.checkedButton().text(), self)
+    def worker_end(self, is_first):
+        if is_first ==1 :
+            self.task_button.setEnabled(True)
+            return
 
-            worker.message_changed.connect(self.append_message)
-            worker.message_end.connect(self.worker_end)
-            worker.message_log.connect(self.worker_log)
-            worker.message_totle.connect(self.worker_totle)
-            self.progress_bar.show()
-            worker.start()
-
-            self.thread_list.append(worker)
-        self.task_button.setEnabled(True)
-
-    def worker_end(self):
-        if self.thread_list:
-            if len(self.thread_list) < 8:
-                return
-            for thread in self.thread_list:
-                if thread.isRunning():
-                    return
+        if is_first == 2:
+            self.task_button.setEnabled(False)
+            return
 
         self.task_button.setEnabled(True)
         self.progress_bar.hide()
-
         self.progress_bar.setValue(self.progress_bar.maximum())
         self.progress_bar.setValue(0)
         self.task_button.setText('开始推理')
@@ -355,7 +339,9 @@ class MainWindow(QMainWindow):
         self.progress_bar.setValue(0)
 
     def worker_log(self, value):
-        self.progress_bar.setValue(value)
+
+        self.progress_bar.setValue(value[0])
+        self.progress_bar.setMaximum(value[1])
 
     def append_message(self, message):
         self.text_messageedit.append(message)
@@ -429,6 +415,7 @@ class MainWindow(QMainWindow):
             self.comboBox.addItem(f"{process_name} (PID: {pid})", pid)
 
     def on_radio_button_toggled(self):
+
         if not self.sender().isChecked():
             return
         if self.button_group3.checkedButton().text() == "自定义进程":
@@ -444,6 +431,7 @@ class MainWindow(QMainWindow):
         if self.button_group3.checkedButton().text() == "LD安卓模拟器":
             self.stacked_widget.hide()
             pl = psutil.pids()
+            self.pid = None
             for pid in pl:
                 try:
                     if 'BoxHeadless' in psutil.Process(pid).name():
@@ -507,21 +495,6 @@ class MainWindow(QMainWindow):
         # 读取内存
 
     def loadfile(self):
-        if self.button2.text() == f"加载模型({self.shortcut_key})":
-            self.button2.setText(f'停止加载模型({self.shortcut_key})')
-        else:
-            if self.Part_worker:
-                print(f"是运行:{self.Part_worker.isRunning()}")
-
-                self.Part_worker.terminate()
-                self.resume_process(self.pid)
-
-                print(f"是运行:{self.Part_worker.isRunning()}")
-            self.progress_bar.hide()
-            self.button2.setText(f'加载模型({self.shortcut_key})')
-
-            return
-
         pid = self.pid
 
         if self.button_group3.checkedButton().text() == '自定义进程id':
@@ -533,6 +506,25 @@ class MainWindow(QMainWindow):
         if not pid:
             self.statusBar().showMessage(f"没有找到进程", 5000)
             return
+
+        if self.button2.text() == f"加载模型({self.shortcut_key})":
+            self.task_button.setEnabled(False)
+            self.button2.setText(f'停止加载模型({self.shortcut_key})')
+        else:
+            self.task_button.setEnabled(True)
+            if self.Part_worker:
+                print(f"是运行:{self.Part_worker.isRunning()}")
+
+                self.Part_worker.terminate()
+                self.resume_process(self.pid)
+
+
+            self.progress_bar.hide()
+            self.button2.setText(f'加载模型({self.shortcut_key})')
+
+            return
+
+
 
         self.Part_worker = Part_Thread.Part_Thread(pid)
         self.Part_worker.Part_changed.connect(self.append_message)
@@ -548,6 +540,7 @@ class MainWindow(QMainWindow):
         self.progress_bar.setValue(self.progress_bar.maximum())
         self.progress_bar.setValue(0)
         self.button2.setText(f'加载模型({self.shortcut_key})')
+        self.task_button.setEnabled(True)
         if value:
             self.file_path = value
             self.text_messageedit.append(f"成功！模型加载成功")
