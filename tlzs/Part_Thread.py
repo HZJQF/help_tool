@@ -81,17 +81,17 @@ class Part_Thread(QThread):
 
         # 打开进程
 
-
-
     def open_process(self, pid):
         try:
             process_handle = ctypes.windll.kernel32.OpenProcess(PROCESS_ALL_ACCESS, False, pid)
             if not process_handle:
+                self.Part_end.emit({})
                 self.send(f"无法打开进程 (PID: {pid})。")
 
             return process_handle
         except Exception as e:
             self.send(f"打开进程时出错: {e}")
+
             return None
 
         # 暂停进程
@@ -121,6 +121,7 @@ class Part_Thread(QThread):
             self.send(f"进程 (PID: {pid}) 已恢复。")
         except Exception as e:
             self.send(f"恢复进程时出错: {e}")
+
 
         # 读取内存
 
@@ -166,17 +167,18 @@ class Part_Thread(QThread):
             self.memory_data = bytearray()
 
             # 遍历获取内存信息
-            for mbi in self.get_memory_info(process_handle):
-                if mbi.State == 0x1000 and mbi.Protect == 0x04:
-                    memory = self.read_process_memory(process_handle, mbi.BaseAddress, mbi.RegionSize)
-                    if memory:
-                        self.memory_data.extend(memory)  # 将内存数据追加到 memory_data 中
-
+            with open('memory_data.bin', "wb") as f:
+                for mbi in self.get_memory_info(process_handle):
+                    if mbi.State == 0x1000 and mbi.Protect == 0x04:
+                        memory = self.read_process_memory(process_handle, mbi.BaseAddress, mbi.RegionSize)
+                        if memory:
+                            f.write(memory)
+                            self.memory_data.extend(memory)  # 将内存数据追加到 memory_data 中
 
             file_dict = {}
             strings = self.process_memory_data(self.memory_data, 1024, b'[\x01-\xff]{4,}', 4)
-            file_dict['strings'] =strings
-            file_dict['all_files'] =self.memory_data
+            file_dict['strings'] = strings
+            file_dict['all_files'] = 'memory_data.bin'
 
             self.Part_end.emit(file_dict)
 
@@ -249,6 +251,5 @@ class Part_Thread(QThread):
             self.send("正在恢复进程...")
             self.resume_process(self.pid)
 
-            self.Part_end.emit(None)
+            self.Part_end.emit({})
             return
-
