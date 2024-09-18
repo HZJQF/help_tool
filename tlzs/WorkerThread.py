@@ -3,7 +3,6 @@ import binascii
 import hashlib
 import hmac
 import io
-import itertools
 import json
 import multiprocessing
 import os
@@ -541,13 +540,14 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
             # 解码为字符串
             text = binary_data.decode('latin1')
             # 使用正则表达式去除尾部的空白字符
-            if not re.search(r'[\s]', text):
-                text = extract_max_multiple_of_4_substring(text)
-
-            else:
-                text = re.sub(r'[\s]+$', '', text)
+            # if not re.search(r'[\s]', text):
+            #     text = extract_max_multiple_of_4_substring(text)
+            #
+            # else:
+            text = re.sub(r'[\s]+$', '', text)
+            # text = extract_max_multiple_of_4_substring(text)
             text = text.encode('latin1')
-
+            
             # 尝试将数据作为公钥加载
             try:
                 public_key = serialization.load_pem_public_key(
