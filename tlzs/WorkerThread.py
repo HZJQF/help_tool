@@ -183,7 +183,6 @@ def aes_decrypt_cbc(key, ciphertext, iv, text_know, text_know_type, queue):
         padding = 'pkcs7'
 
         data = unpad(data, AES.block_size)
-        key.decode()
         data = data.decode('utf-8')
         if text_know_type == 'json格式':
             if not is_valid_json(data):
@@ -486,57 +485,63 @@ def detect_format_and_convert_to_binary(s):
 def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_know, text_know_type, queue,
                             is_all_hash=False):
     global is_use_cbc
-    all_files = dump_file.get('all_files')
-    dump_file = dump_file.get('strings')
+    count_4_totle = dump_file.get('count_4_totle')
+    with open(dump_file.get('all_files_path'), 'rb') as file:
+        all_files = file.read()
 
+    message_end(1, queue)
     """在内存转储文件中搜索匹配的明文或密钥"""
 
     target_str = detect_format_and_convert_to_binary(target_str)
 
     if algo_input == 'sm4':
-        message_end(1, queue)
         pattern16 = re.compile(br'(?=(.{16}))')
-        strings16 = []
-        for item in dump_file:
-            if len(item) >= 16:
-                strings16.extend([match.group(1) for match in pattern16.finditer(item)])
-        message_totle(len(strings16), queue)
-        for i, key in enumerate(strings16):
-            if (i + 1) % max(1, len(strings16) // 100) == 0 or i == len(strings16) - 1:
-                message_log(i + 1, len(strings16), queue)  # 批量更新进度条
 
-            ciphertext_ecb = sm4_decrypt_ecb(key, target_str, text_know, text_know_type, queue)
-            if ciphertext_ecb:
-                return queue.put(algo_input + '_1')
+        message_totle(count_4_totle, queue)
+        for i, key in enumerate(re.finditer(b'[\x01-\xff]{4,}', all_files)):
+            if (i + 1) % max(1, count_4_totle // 100) == 0 or i == count_4_totle - 1:
+                message_log(i + 1, count_4_totle, queue)  # 批量更新进度条
 
-            is_use_cbc = False
-            sm4_decrypt_cbc(key, target_str,
-                            b'0123456789abcdef', text_know, text_know_type, queue)
-            if is_use_cbc:
-                send('开始推理iv', queue)
+            if len(key.group()) >= 16:
+                pattern = pattern16
+            else:
+                continue
 
-                for iv in strings16:
+            for match in pattern.finditer(key.group()):
+                ciphertext_ecb = sm4_decrypt_ecb(match.group(1), target_str, text_know, text_know_type, queue)
+                if ciphertext_ecb:
+                    return queue.put(algo_input + '_1')
 
-                    ciphertext_cbc = sm4_decrypt_cbc(key, target_str,
-                                                     iv, text_know, text_know_type, queue)
-                    if ciphertext_cbc:
-                        return queue.put(algo_input + '_1')
+                is_use_cbc = False
+                sm4_decrypt_cbc(match.group(1), target_str,
+                                b'0123456789abcdef', text_know, text_know_type, queue)
 
-        pass
+                if is_use_cbc:
+                    send('开始推理iv', queue)
+
+                    for iv in re.finditer(b'[\x01-\xff]{4,}', all_files):
+                        if len(iv.group()) >= 16:
+                            pattern = pattern16
+                        else:
+                            continue
+
+                        for match_iv in pattern.finditer(iv.group()):
+                            ciphertext_cbc = sm4_decrypt_cbc(match.group(1), target_str,
+                                                             match_iv.group(1), text_know, text_know_type, queue)
+                            if ciphertext_cbc:
+                                return queue.put(algo_input + '_1')
 
     if algo_input == 'rsa证书导出':
-        message_end(1, queue)
-        with open(all_files, 'rb') as file:
-            strings = process_memory_data(file.read(), 1024, rb'M[A-Za-z0-9+/=\s]{128,}', 128)
+
+        strings = re.finditer(rb'M[A-Za-z0-9+/=\s]{128,}', all_files)
 
         isfind = False
-        message_totle(len(strings), queue)
-        for i, key in enumerate(strings):
-            if (i + 1) % max(1, len(strings) // 100) == 0 or i == len(strings) - 1:
-                message_log(i + 1, len(strings), queue)  # 批量更新进度条
+        message_totle(0, queue)
+        for key in strings:
+            message_log(0, 0, queue)  # 批量更新进度条
 
             # 原始二进制数据
-            binary_data = key
+            binary_data = key.group()
             # 解码为字符串
             text = binary_data.decode('latin1')
             # 使用正则表达式去除尾部的空白字符
@@ -547,7 +552,7 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
             text = re.sub(r'[\s]+$', '', text)
             # text = extract_max_multiple_of_4_substring(text)
             text = text.encode('latin1')
-            
+
             # 尝试将数据作为公钥加载
             try:
                 public_key = serialization.load_pem_public_key(
@@ -579,27 +584,26 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
         if isfind:
             return queue.put(algo_input + '_1')
     if algo_input == '明文搜索':
-        message_end(1, queue)
         isfind = False
-        message_totle(len(dump_file), queue)
-        for i, key in enumerate(dump_file):
-            if (i + 1) % max(1, len(dump_file) // 100) == 0 or i == len(dump_file) - 1:
-                message_log(i + 1, len(dump_file), queue)  # 批量更新进度条
+        message_totle(count_4_totle, queue)
+        for i, key in enumerate(re.finditer(b'[\x01-\xff]{4,}', all_files)):
+            if (i + 1) % max(1, count_4_totle // 100) == 0 or i == count_4_totle - 1:
+                message_log(i + 1, count_4_totle, queue)  # 批量更新进度条
 
             try:
-                if text_know.encode('utf-8') in key or text_know.encode('gbk') in key:
-                    send("\n找到明文串\n" + key.decode('utf-8'), queue)
-                    send(f"md5值：{hashlib.md5(key).hexdigest()}", queue)
-                    send(f"sha1值：{hashlib.sha1(key).hexdigest()}", queue)
-                    send(f"sha256值：{hashlib.sha256(key).hexdigest()}", queue)
+                if text_know.encode('utf-8') in key.group() or text_know.encode('gbk') in key.group():
+                    send("\n找到明文串\n" + key.group().decode('utf-8'), queue)
+                    send(f"md5值：{hashlib.md5(key.group()).hexdigest()}", queue)
+                    send(f"sha1值：{hashlib.sha1(key.group()).hexdigest()}", queue)
+                    send(f"sha256值：{hashlib.sha256(key.group()).hexdigest()}", queue)
                     isfind = True
 
             except UnicodeDecodeError:
                 try:
-                    send("\n找到明文串(gbk编码)\n" + key.decode('gbk'), queue)
-                    send(f"md5值：{hashlib.md5(key).hexdigest()}", queue)
-                    send(f"sha1值：{hashlib.sha1(key).hexdigest()}", queue)
-                    send(f"sha256值：{hashlib.sha256(key).hexdigest()}", queue)
+                    send("\n找到明文串(gbk编码)\n" + key.group().decode('gbk'), queue)
+                    send(f"md5值：{hashlib.md5(key.group()).hexdigest()}", queue)
+                    send(f"sha1值：{hashlib.sha1(key.group()).hexdigest()}", queue)
+                    send(f"sha256值：{hashlib.sha256(key.group()).hexdigest()}", queue)
                     isfind = True
                 except:
                     pass
@@ -608,222 +612,232 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
             return queue.put(algo_input + '_1')
 
     if algo_input == 'aes':
-        message_end(1, queue)
+
         pattern16 = re.compile(rb'(?=(.{16}))')
         pattern24 = re.compile(rb'(?=(.{24}))')
         pattern32 = re.compile(rb'(?=(.{32}))')
 
-        strings16 = []
-        strings24 = []
-        strings32 = []
-        stringslist = []
+        message_totle(count_4_totle, queue)
+        for i, key in enumerate(re.finditer(b'[\x01-\xff]{4,}', all_files)):
+            if (i + 1) % max(1, count_4_totle // 100) == 0 or i == count_4_totle - 1:
+                message_log(i + 1, count_4_totle, queue)  # 批量更新进度条
 
-        for item in dump_file:
-            if 16 <= len(item) < 24:
-                strings16.extend([match.group(1) for match in pattern16.finditer(item)])
-            if 24 <= len(item) < 32:
-                strings24.extend([match.group(1) for match in pattern24.finditer(item)])
-            if len(item) >= 32:
-                strings32.extend([match.group(1) for match in pattern32.finditer(item)])
+            if 16 <= len(key.group()) < 24:
+                pattern = pattern16
+            elif 24 <= len(key.group()) < 32:
+                pattern = pattern24
+            elif len(key.group()) >= 32:
+                pattern = pattern32
+            else:
+                continue
 
-        stringslist.extend(strings16)
-        stringslist.extend(strings24)
-        stringslist.extend(strings32)
+            for match in pattern.finditer(key.group()):
+                ciphertext_ecb = aes_decrypt_ecb(match.group(1), target_str, text_know, text_know_type, queue)
+                if ciphertext_ecb:
+                    return queue.put(algo_input + '_1')
 
-        message_totle(len(stringslist), queue)
-        for i, key in enumerate(stringslist):
-            if (i + 1) % max(1, len(stringslist) // 100) == 0 or i == len(stringslist) - 1:
-                message_log(i + 1, len(stringslist), queue)  # 批量更新进度条
+                is_use_cbc = False
+                aes_decrypt_cbc(match.group(1), target_str,
+                                b'0123456789abcdef', text_know, text_know_type, queue)
 
-            ciphertext_ecb = aes_decrypt_ecb(key, target_str, text_know, text_know_type, queue)
-            if ciphertext_ecb:
-                return queue.put(algo_input + '_1')
+                if is_use_cbc:
+                    send('开始推理iv', queue)
 
-            is_use_cbc = False
-            aes_decrypt_cbc(key, target_str,
-                            b'0123456789abcdef', text_know, text_know_type, queue)
+                    for iv in re.finditer(b'[\x01-\xff]{4,}', all_files):
+                        if 16 <= len(key.group()) < 24:
+                            pattern = pattern16
+                        elif 24 <= len(key.group()) < 32:
+                            pattern = pattern24
+                        elif len(key.group()) >= 32:
+                            pattern = pattern32
+                        else:
+                            continue
 
-            if is_use_cbc:
-                send('开始推理iv', queue)
+                        for match_iv in pattern.finditer(iv.group()):
 
-                for iv in strings16:
+                            ciphertext_cbc = aes_decrypt_cbc(match.group(1),
+                                                             target_str,
+                                                             match_iv.group(1), text_know, text_know_type, queue)
 
-                    ciphertext_cbc = aes_decrypt_cbc(key,
-                                                     target_str,
-                                                     iv, text_know, text_know_type, queue)
-
-                    if ciphertext_cbc:
-                        return queue.put(algo_input + '_1')
+                            if ciphertext_cbc:
+                                return queue.put(algo_input + '_1')
 
     if algo_input == 'des':
-        message_end(1, queue)
         pattern8 = re.compile(br'(?=(.{8}))')
-        strings8 = []
-        for item in dump_file:
-            if len(item) >= 8:
-                strings8.extend([match.group(1) for match in pattern8.finditer(item)])
-        message_totle(len(strings8), queue)
-        for i, key in enumerate(strings8):
-            if (i + 1) % max(1, len(strings8) // 100) == 0 or i == len(strings8) - 1:
-                message_log(i + 1, len(strings8), queue)  # 批量更新进度条
+        message_totle(count_4_totle, queue)
+        for i, key in enumerate(re.finditer(b'[\x01-\xff]{4,}', all_files)):
+            if (i + 1) % max(1, count_4_totle // 100) == 0 or i == count_4_totle - 1:
+                message_log(i + 1, count_4_totle, queue)  # 批量更新进度条
 
-            ciphertext_ecb = des_decrypt_ecb(key, target_str, text_know, text_know_type, queue)
-            if ciphertext_ecb:
-                return queue.put(algo_input + '_1')
+            if len(key.group()) >= 8:
+                pattern = pattern8
+            else:
+                continue
 
-            is_use_cbc = False
-            des_decrypt_cbc(key, target_str,
-                            b'01234567', text_know, text_know_type, queue)
-            if is_use_cbc:
-                send('开始推理iv', queue)
+            for match in pattern.finditer(key.group()):
+                ciphertext_ecb = des_decrypt_ecb(match.group(1), target_str, text_know, text_know_type, queue)
+                if ciphertext_ecb:
+                    return queue.put(algo_input + '_1')
 
-                for iv in strings8:
+                is_use_cbc = False
+                des_decrypt_cbc(key, target_str,
+                                b'01234567', text_know, text_know_type, queue)
+                if is_use_cbc:
+                    send('开始推理iv', queue)
 
-                    ciphertext_cbc = des_decrypt_cbc(key, target_str,
-                                                     iv, text_know, text_know_type, queue)
-                    if ciphertext_cbc:
-                        return queue.put(algo_input + '_1')
+                    for iv in re.finditer(b'[\x01-\xff]{4,}', all_files):
+                        if len(iv.group()) >= 8:
+                            pattern = pattern8
+                        else:
+                            continue
+
+                        for match_iv in pattern.finditer(iv.group()):
+
+                            ciphertext_cbc = des_decrypt_cbc(match.group(1), target_str,
+                                                             match_iv.group(1), text_know, text_know_type, queue)
+                            if ciphertext_cbc:
+                                return queue.put(algo_input + '_1')
 
     if algo_input == '3des':
-        message_end(1, queue)
+
         pattern8 = re.compile(br'(?=(.{8}))')
         pattern24 = re.compile(br'(?=(.{24}))')
-        strings8 = []
-        strings24 = []
 
-        for item in dump_file:
-            if 8 <= len(item) < 24:
-                strings8.extend([match.group(1) for match in pattern8.finditer(item)])
+        message_totle(count_4_totle, queue)
+        for i, key in enumerate(re.finditer(b'[\x01-\xff]{4,}', all_files)):
+            if (i + 1) % max(1, count_4_totle // 100) == 0 or i == count_4_totle - 1:
+                message_log(i + 1, count_4_totle, queue)  # 批量更新进度条
 
-            if len(item) >= 24:
-                strings24.extend([match.group(1) for match in pattern24.finditer(item)])
+            if 8 <= len(key.group()) < 24:
+                pattern = pattern8
 
-        message_totle(len(strings24), queue)
-        for i, key in enumerate(strings24):
-            if (i + 1) % max(1, len(strings24) // 100) == 0 or i == len(strings24) - 1:
-                message_log(i + 1, len(strings24), queue)  # 批量更新进度条
-            ciphertext_ecb = triple_des_decrypt_ecb(key, target_str, text_know, text_know_type, queue)
-            if ciphertext_ecb:
-                return queue.put(algo_input + '_1')
+            elif len(key.group()) >= 24:
+                pattern = pattern24
+            else:
+                continue
 
-            is_use_cbc = False
+            for match in pattern.finditer(key.group()):
 
-            triple_des_decrypt_cbc(key, target_str,
-                                   b'00000000', text_know, text_know_type, queue)
-            if is_use_cbc:
-                send('开始推理iv', queue)
-                for iv in strings8:
-                    # print(iv)
-                    ciphertext_cbc = triple_des_decrypt_cbc(key, target_str, iv, text_know, text_know_type, queue)
-                    if ciphertext_cbc:
-                        return queue.put(algo_input + '_1')
+                ciphertext_ecb = triple_des_decrypt_ecb(match.group(1), target_str, text_know, text_know_type, queue)
+                if ciphertext_ecb:
+                    return queue.put(algo_input + '_1')
+
+                is_use_cbc = False
+
+                triple_des_decrypt_cbc(match.group(1), target_str,
+                                       b'00000000', text_know, text_know_type, queue)
+                if is_use_cbc:
+                    send('开始推理iv', queue)
+                    for iv in re.finditer(b'[\x01-\xff]{4,}', all_files):
+
+                        if 8 <= len(key.group()) < 24:
+                            pattern = pattern8
+
+                        elif len(key.group()) >= 24:
+                            pattern = pattern24
+                        else:
+                            continue
+
+                        for match_iv in pattern.finditer(iv.group()):
+                            ciphertext_cbc = triple_des_decrypt_cbc(match.group(1), target_str, match_iv.group(1),
+                                                                    text_know, text_know_type, queue)
+                            if ciphertext_cbc:
+                                return queue.put(algo_input + '_1')
 
     if algo_input in hashlib.algorithms_available or is_all_hash:
-
-        message_end(1, queue)
-        strings = dump_file  # 提取较长的可打印字符串，包括中文字符
-        stringslist = []
-
-        for s in strings:
-            try:
-                if text_know_type == 'json格式':
-                    if not is_valid_json(s.decode()):
-                        continue
-                stringslist.append(s.decode('utf-8'))
-            except UnicodeDecodeError:
-                try:
-                    if text_know_type == 'json格式':
-                        if not is_valid_json(s.decode('gbk')):
-                            continue
-                    stringslist.append(s.decode('gbk'))
-                except UnicodeDecodeError:
-                    continue
-        if text_know:
-            known_messagelist = []
-            for mm in stringslist:
-                if text_know in mm:
-                    known_messagelist.append(mm)
 
         if is_all_hash:
 
             for name in ["md5", "sha1", "sha256", "sm3"]:
                 algo_input = name
 
-                if text_know:
+                message_totle(count_4_totle, queue)
+                for i, key in enumerate(re.finditer(b'[\x01-\xff]{4,}', all_files)):
+                    if (i + 1) % max(1, count_4_totle // 100) == 0 or i == count_4_totle - 1:
+                        message_log(i + 1, count_4_totle, queue)  # 批量更新进度条
 
-                    message_totle(len(known_messagelist), queue)
-                    for i, decoded_str in enumerate(known_messagelist):
-                        if (i + 1) % max(1, len(known_messagelist) // 20) == 0 or i == len(known_messagelist) - 1:
-                            message_log(i + 1, len(known_messagelist), queue)  # 批量更新进度条
+                    try:
+                        if text_know_type == 'json格式':
+                            if not is_valid_json(key.group().decode()):
+                                continue
+                        decoded_str = key.group().decode('utf-8')
+                    except UnicodeDecodeError:
+                        try:
+                            if text_know_type == 'json格式':
+                                if not is_valid_json(key.group().decode('gbk')):
+                                    continue
+                            decoded_str = key.group().decode('gbk')
+                        except UnicodeDecodeError:
+                            continue
 
-                        if compute_hash(decoded_str, algo_input) == target_str:
-                            send(f"找到匹配的明文：{decoded_str}", queue)
+                    if text_know and text_know not in decoded_str:
+                        continue
 
-                            return queue.put(algo_input + '_1')
-                else:
-                    message_totle(len(stringslist), queue)
-                    for i, decoded_str in enumerate(stringslist):
-                        if (i + 1) % max(1, len(stringslist) // 20) == 0 or i == len(stringslist) - 1:
-                            message_log(i + 1, len(stringslist), queue)  # 批量更新进度条
+                    if compute_hash(decoded_str, algo_input) == target_str:
+                        send(f"找到匹配的明文：{decoded_str}", queue)
 
-                        if compute_hash(decoded_str, algo_input) == target_str:
-                            send(f"找到匹配的明文：{decoded_str}", queue)
+                        return queue.put(algo_input + '_1')
 
-                            return queue.put(algo_input + '_1')
         else:
             if not use_hmac:
+                message_totle(count_4_totle, queue)
+                for i, key in enumerate(re.finditer(b'[\x01-\xff]{4,}', all_files)):
+                    if (i + 1) % max(1, count_4_totle // 100) == 0 or i == count_4_totle - 1:
+                        message_log(i + 1, count_4_totle, queue)  # 批量更新进度条
 
-                if text_know:
+                    try:
+                        if text_know_type == 'json格式':
+                            if not is_valid_json(key.group().decode()):
+                                continue
+                        decoded_str = key.group().decode('utf-8')
+                    except UnicodeDecodeError:
+                        try:
+                            if text_know_type == 'json格式':
+                                if not is_valid_json(key.group().decode('gbk')):
+                                    continue
+                            decoded_str = key.group().decode('gbk')
+                        except UnicodeDecodeError:
+                            continue
 
-                    message_totle(len(known_messagelist), queue)
-                    for i, decoded_str in enumerate(known_messagelist):
-                        if (i + 1) % max(1, len(known_messagelist) // 20) == 0 or i == len(known_messagelist) - 1:
-                            message_log(i + 1, len(known_messagelist), queue)  # 批量更新进度条
+                    if text_know and text_know not in decoded_str:
+                        continue
 
-                        if compute_hash(decoded_str, algo_input) == target_str:
-                            send(f"找到匹配的明文：{decoded_str}", queue)
+                    if compute_hash(decoded_str, algo_input) == target_str:
+                        send(f"找到匹配的明文：{decoded_str}", queue)
 
-                            return queue.put(algo_input + '_1')
-                else:
-                    message_totle(len(stringslist), queue)
-                    for i, decoded_str in enumerate(stringslist):
-                        if (i + 1) % max(1, len(stringslist) // 20) == 0 or i == len(stringslist) - 1:
-                            message_log(i + 1, len(stringslist), queue)  # 批量更新进度条
-
-                        if compute_hash(decoded_str, algo_input) == target_str:
-                            send(f"找到匹配的明文：{decoded_str}", queue)
-
-                            return queue.put(algo_input + '_1')
+                        return queue.put(algo_input + '_1')
             else:
-                if not text_know:
-                    message_totle(len(strings), queue)
-                    for i, key in enumerate(strings):
-                        if (i + 1) % max(1, len(strings) // 20) == 0 or i == len(strings) - 1:
-                            message_log(i + 1, len(strings), queue)  # 批量更新进度条
 
-                        for known_message in stringslist:
-                            # 尝试提取的字符串作为密钥，使用已知的消息进行 HMAC 并与目标 HMAC 值比较
-                            computed_hmac = compute_hmac(known_message, key,
-                                                         algo_input)  # 消息是 known_message，密钥是 decoded_str
-                            if computed_hmac == target_str:
-                                send(f"找到匹配的密钥：{key}", queue)
-                                send(f"找到匹配的明文：{known_message}", queue)
-                                return queue.put(algo_input + '_1')
-                else:
+                message_totle(count_4_totle, queue)
+                for i, key in enumerate(re.finditer(b'[\x01-\xff]{4,}', all_files)):
+                    if (i + 1) % max(1, count_4_totle // 100) == 0 or i == count_4_totle - 1:
+                        message_log(i + 1, count_4_totle, queue)  # 批量更新进度条
 
-                    message_totle(len(strings), queue)
-                    for i, key in enumerate(strings):
+                    try:
+                        if text_know_type == 'json格式':
+                            if not is_valid_json(key.group().decode()):
+                                continue
+                        decoded_str = key.group().decode('utf-8')
+                    except UnicodeDecodeError:
+                        try:
+                            if text_know_type == 'json格式':
+                                if not is_valid_json(key.group().decode('gbk')):
+                                    continue
+                            decoded_str = key.group().decode('gbk')
+                        except UnicodeDecodeError:
+                            continue
 
-                        if (i + 1) % max(1, len(strings) // 20) == 0 or i == len(strings) - 1:
-                            message_log(i + 1, len(strings), queue)  # 批量更新进度条
+                    if text_know and text_know not in decoded_str:
+                        continue
 
-                        for known_messagelistss in known_messagelist:
-                            computed_hmac = compute_hmac(known_messagelistss, key,
-                                                         algo_input)  # 消息是 known_message，密钥是 decoded_str
-                            if computed_hmac == target_str:
-                                send(f"找到匹配的密钥：{key}", queue)
-                                send(f"找到匹配的明文：{known_messagelistss}", queue)
-                                return queue.put(algo_input + '_1')
+                    for hmac_key in re.finditer(b'[\x01-\xff]{4,}', all_files):
+                        # 尝试提取的字符串作为密钥，使用已知的消息进行 HMAC 并与目标 HMAC 值比较
+                        computed_hmac = compute_hmac(decoded_str, hmac_key.group(),
+                                                     algo_input)  # 消息是 known_message，密钥是 decoded_str
+                        if computed_hmac == target_str:
+                            send(f"找到匹配的密钥：{hmac_key.group()}", queue)
+                            send(f"找到匹配的明文：{decoded_str}", queue)
+                            return queue.put('hmac'+algo_input + '_1')
 
     return queue.put(algo_input + '_0')
 
@@ -968,6 +982,7 @@ class WorkerAllThread(QThread):
             self.message_end.emit(0)
 
 
+
         else:
             queue = multiprocessing.Queue()
             dump_file = self.file_path
@@ -1002,7 +1017,6 @@ class WorkerAllThread(QThread):
                     if result.split('_')[1] == '1':
                         self.send(f"*******算法{result.split('_')[0]}匹配成功*******\n")
                         self.p.join()
-
 
                     else:
                         self.send(f"*******未找到算法{result.split('_')[0]}匹配的明文或密钥*******\n")
