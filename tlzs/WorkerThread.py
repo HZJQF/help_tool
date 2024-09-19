@@ -644,12 +644,8 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
                     send('开始推理iv', queue)
 
                     for iv in re.finditer(b'[\x01-\xff]{4,}', all_files):
-                        if 16 <= len(key.group()) < 24:
+                        if len(key.group()) >= 16:
                             pattern = pattern16
-                        elif 24 <= len(key.group()) < 32:
-                            pattern = pattern24
-                        elif len(key.group()) >= 32:
-                            pattern = pattern32
                         else:
                             continue
 
@@ -730,11 +726,8 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
                     send('开始推理iv', queue)
                     for iv in re.finditer(b'[\x01-\xff]{4,}', all_files):
 
-                        if 8 <= len(key.group()) < 24:
+                        if len(iv.group()) >= 8:
                             pattern = pattern8
-
-                        elif len(key.group()) >= 24:
-                            pattern = pattern24
                         else:
                             continue
 
