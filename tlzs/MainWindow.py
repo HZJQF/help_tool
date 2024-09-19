@@ -252,6 +252,13 @@ class MainWindow(QMainWindow):
         keyboard.unhook_all()
 
     def start_worker(self):
+        if self.task_button.text() == "停止推理":
+            if self.worker:
+                self.worker.stop()
+                self.worker.terminate()
+            self.progress_bar.hide()
+            self.task_button.setText('开始推理')
+            return
 
         if not self.file_path:
             self.statusBar().showMessage("模型为空请加载模型", 5000)
@@ -279,14 +286,6 @@ class MainWindow(QMainWindow):
 
         if self.task_button.text() == "开始推理":
             self.task_button.setText('停止推理')
-        else:
-
-            if self.worker:
-                self.worker.stop()
-                self.worker.terminate()
-            self.progress_bar.hide()
-            self.task_button.setText('开始推理')
-            return
 
         if self.hash_name == "全部算法(不含HMAC)":
             self.task_button.setEnabled(False)
@@ -315,7 +314,7 @@ class MainWindow(QMainWindow):
             self.worker.start()
 
     def worker_end(self, is_first):
-        if is_first ==1 :
+        if is_first == 1:
             self.task_button.setEnabled(True)
             return
 
@@ -413,17 +412,18 @@ class MainWindow(QMainWindow):
 
         if not self.sender().isChecked():
             return
+
         if self.button_group3.checkedButton().text() == "自定义进程":
             self.stacked_widget.show()
             self.update_process_list()
             self.stacked_widget.setCurrentIndex(0)
 
-        if self.button_group3.checkedButton().text() == "自定义进程id":
+        elif self.button_group3.checkedButton().text() == "自定义进程id":
             self.stacked_widget.show()
             self.pid = None
             self.stacked_widget.setCurrentIndex(1)
 
-        if self.button_group3.checkedButton().text() == "LD安卓模拟器":
+        elif self.button_group3.checkedButton().text() == "LD安卓模拟器":
             self.stacked_widget.hide()
             pl = psutil.pids()
             self.pid = None
@@ -433,6 +433,8 @@ class MainWindow(QMainWindow):
                         self.pid = pid
                 except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                     pass
+        else:
+            self.pid = None
 
         self.textbox.setText('')
         self.file_path = ''
@@ -504,22 +506,7 @@ class MainWindow(QMainWindow):
 
         if self.button2.text() == f"加载模型({self.shortcut_key})":
             self.task_button.setEnabled(False)
-            self.button2.setText(f'停止加载模型({self.shortcut_key})')
-        else:
-            self.task_button.setEnabled(True)
-            if self.Part_worker:
-                print(f"是运行:{self.Part_worker.isRunning()}")
-
-                self.Part_worker.terminate()
-                self.resume_process(self.pid)
-
-
-            self.progress_bar.hide()
-            self.button2.setText(f'加载模型({self.shortcut_key})')
-
-            return
-
-
+            self.button2.setEnabled(False)
 
         self.Part_worker = Part_Thread.Part_Thread(pid)
         self.Part_worker.Part_changed.connect(self.append_message)
