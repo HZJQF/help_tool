@@ -676,7 +676,7 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
                     return queue.put(algo_input + '_1')
 
                 is_use_cbc = False
-                des_decrypt_cbc(key, target_str,
+                des_decrypt_cbc(match.group(1), target_str,
                                 b'01234567', text_know, text_know_type, queue)
                 if is_use_cbc:
                     send('开始推理iv', queue)
@@ -721,7 +721,7 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
                 is_use_cbc = False
 
                 triple_des_decrypt_cbc(match.group(1), target_str,
-                                       b'00000000', text_know, text_know_type, queue)
+                                       b'01234567', text_know, text_know_type, queue)
                 if is_use_cbc:
                     send('开始推理iv', queue)
                     for iv in re.finditer(b'[\x01-\xff]{4,}', all_files):
