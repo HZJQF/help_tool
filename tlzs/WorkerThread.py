@@ -644,7 +644,7 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
                     send('开始推理iv', queue)
 
                     for iv in re.finditer(b'[\x01-\xff]{4,}', all_files):
-                        if len(key.group()) >= 16:
+                        if len(iv.group()) >= 16:
                             pattern = pattern16
                         else:
                             continue
