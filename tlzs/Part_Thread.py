@@ -122,7 +122,6 @@ class Part_Thread(QThread):
         except Exception as e:
             self.send(f"恢复进程时出错: {e}")
 
-
         # 读取内存
 
     def read_process_memory(self, process_handle, address, size):
@@ -176,10 +175,15 @@ class Part_Thread(QThread):
                             self.memory_data.extend(memory)  # 将内存数据追加到 memory_data 中
 
             file_dict = {}
-            strings = self.process_memory_data(self.memory_data, 1024, b'[\x01-\xff]{4,}', 4)
-            file_dict['strings'] = strings
-            file_dict['all_files'] = 'memory_data.bin'
+            # strings = self.process_memory_data(self.memory_data, 1024, b'[\x01-\xff]{4,}', 4)
+            self.Part_totle.emit(0)
+            matches = re.finditer(b'[\x01-\xff]{4,}', self.memory_data)
+            count_4_totle = 0
+            for match in matches:
+                count_4_totle += 1
 
+            file_dict['count_4_totle'] = count_4_totle
+            file_dict['all_files_path'] = 'memory_data.bin'
             self.Part_end.emit(file_dict)
 
         except Exception as e:
