@@ -235,25 +235,45 @@ class Part_Thread(QThread):
         self.Part_changed.emit(f"{message}")
 
     def run(self):
-        try:
-            # 暂停进程
-            self.send("正在暂停进程...")
-            self.suspend_process(self.pid)
+        if isinstance(self.pid, str):
+            try:
 
-            # 转储进程内存
-            self.dump_process_memory(self.pid)
+                    file_path = self.pid
+                    with open(file_path, 'rb') as file:
+                        all_files = file.read()
+                    file_dict = {}
+                    self.Part_totle.emit(0)
+                    matches = re.finditer(b'[\x01-\xff]{4,}', all_files)
+                    count_4_totle = 0
+                    for match in matches:
+                        count_4_totle += 1
 
-            # 恢复进程
-            self.send("正在恢复进程...")
-            self.resume_process(self.pid)
+                    file_dict['count_4_totle'] = count_4_totle
+                    file_dict['all_files_path'] = file_path
+                    self.Part_end.emit(file_dict)
+            except Exception as e:
+                self.send(f"加载出错: {e}")
+        else:
 
-        except ValueError:
-            self.send("输入的 PID 无效。")
-        except Exception as e:
-            self.send(f"程序运行时出错: {e}")
-            # 恢复进程
-            self.send("正在恢复进程...")
-            self.resume_process(self.pid)
+            try:
+                # 暂停进程
+                self.send("正在暂停进程...")
+                self.suspend_process(self.pid)
 
-            self.Part_end.emit({})
-            return
+                # 转储进程内存
+                self.dump_process_memory(self.pid)
+
+                # 恢复进程
+                self.send("正在恢复进程...")
+                self.resume_process(self.pid)
+
+            except ValueError:
+                self.send("输入的 PID 无效。")
+            except Exception as e:
+                self.send(f"程序运行时出错: {e}")
+                # 恢复进程
+                self.send("正在恢复进程...")
+                self.resume_process(self.pid)
+
+                self.Part_end.emit({})
+                return
