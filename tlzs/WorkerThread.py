@@ -2,7 +2,6 @@ import base64
 import binascii
 import hashlib
 import hmac
-import io
 import json
 import multiprocessing
 import os
@@ -355,8 +354,10 @@ def triple_des_decrypt_ecb(key, ciphertext, text_know, text_know_type, queue):
 def triple_des_decrypt_cbc(key, ciphertext, iv, text_know, text_know_type, queue):
     global is_use_cbc
     try:
+
         cipher = DES3.new(key, DES3.MODE_CBC, iv)
         data = cipher.decrypt(ciphertext)
+
     except:
         return False
 
@@ -416,35 +417,6 @@ def compute_hmac(s, key, hash_algo):
     return hmac_obj.digest()
 
 
-def process_memory_data(memory_data, chunk_size, pattern, tail_length):
-    pattern = re.compile(pattern)
-    strings = set()
-
-    # 保留的尾部数据长度为 256 字节
-    tail_length = tail_length
-
-    previous_chunk_end = b''
-
-    file_stream = io.BytesIO(memory_data)
-
-    while True:
-        chunk = file_stream.read(chunk_size)
-        if not chunk:
-            break
-
-        # 将前一块的尾部与当前块合并
-        combined_chunk = previous_chunk_end + chunk
-
-        # 查找匹配项
-        matches = pattern.findall(combined_chunk)
-        strings.update(matches)
-
-        # 更新前一块的尾部数据
-        previous_chunk_end = chunk[-tail_length:] if len(chunk) > tail_length else chunk
-
-    return list(strings)
-
-
 def extract_max_multiple_of_4_substring(s):
     length = len(s)
     max_substring = ""
@@ -482,13 +454,13 @@ def detect_format_and_convert_to_binary(s):
     return s.encode('utf-8')
 
 
-def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_know, text_know_type, queue,
+def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_know, text_know_type, queue, is_deep,
                             is_all_hash=False):
     global is_use_cbc
     count_4_totle = dump_file.get('count_4_totle')
     with open(dump_file.get('all_files_path'), 'rb') as file:
         all_files = file.read()
-
+    pattern_common = re.compile(b'[ -~]{4,}')
     message_end(1, queue)
     """在内存转储文件中搜索匹配的明文或密钥"""
 
@@ -496,24 +468,25 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
 
     if algo_input == 'sm4':
         pattern16 = re.compile(br'(?=(.{16}))')
-
         message_totle(count_4_totle, queue)
         for i, key in enumerate(re.finditer(b'[\x01-\xff]{4,}', all_files)):
             if (i + 1) % max(1, count_4_totle // 100) == 0 or i == count_4_totle - 1:
                 message_log(i + 1, count_4_totle, queue)  # 批量更新进度条
 
             if len(key.group()) >= 16:
-                pattern = pattern16
+                pattern = pattern16 if is_deep else pattern_common
+
             else:
                 continue
 
             for match in pattern.finditer(key.group()):
-                ciphertext_ecb = sm4_decrypt_ecb(match.group(1), target_str, text_know, text_know_type, queue)
+                ciphertext_ecb = sm4_decrypt_ecb(match.group(1) if is_deep else match.group(0), target_str, text_know,
+                                                 text_know_type, queue)
                 if ciphertext_ecb:
                     return queue.put(algo_input + '_1')
 
                 is_use_cbc = False
-                sm4_decrypt_cbc(match.group(1), target_str,
+                sm4_decrypt_cbc(match.group(1) if is_deep else match.group(0), target_str,
                                 b'0123456789abcdef', text_know, text_know_type, queue)
 
                 if is_use_cbc:
@@ -521,13 +494,14 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
 
                     for iv in re.finditer(b'[\x01-\xff]{4,}', all_files):
                         if len(iv.group()) >= 16:
-                            pattern = pattern16
+                            pattern = pattern16 if is_deep else pattern_common
                         else:
                             continue
 
                         for match_iv in pattern.finditer(iv.group()):
-                            ciphertext_cbc = sm4_decrypt_cbc(match.group(1), target_str,
-                                                             match_iv.group(1), text_know, text_know_type, queue)
+                            ciphertext_cbc = sm4_decrypt_cbc(match.group(1) if is_deep else match.group(0), target_str,
+                                                             match_iv.group(1) if is_deep else match_iv.group(0),
+                                                             text_know, text_know_type, queue)
                             if ciphertext_cbc:
                                 return queue.put(algo_input + '_1')
 
@@ -623,21 +597,22 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
                 message_log(i + 1, count_4_totle, queue)  # 批量更新进度条
 
             if 16 <= len(key.group()) < 24:
-                pattern = pattern16
+                pattern = pattern16 if is_deep else pattern_common
             elif 24 <= len(key.group()) < 32:
-                pattern = pattern24
+                pattern = pattern24 if is_deep else pattern_common
             elif len(key.group()) >= 32:
-                pattern = pattern32
+                pattern = pattern32 if is_deep else pattern_common
             else:
                 continue
 
             for match in pattern.finditer(key.group()):
-                ciphertext_ecb = aes_decrypt_ecb(match.group(1), target_str, text_know, text_know_type, queue)
+                ciphertext_ecb = aes_decrypt_ecb(match.group(1) if is_deep else match.group(0), target_str, text_know,
+                                                 text_know_type, queue)
                 if ciphertext_ecb:
                     return queue.put(algo_input + '_1')
 
                 is_use_cbc = False
-                aes_decrypt_cbc(match.group(1), target_str,
+                aes_decrypt_cbc(match.group(1) if is_deep else match.group(0), target_str,
                                 b'0123456789abcdef', text_know, text_know_type, queue)
 
                 if is_use_cbc:
@@ -645,15 +620,16 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
 
                     for iv in re.finditer(b'[\x01-\xff]{4,}', all_files):
                         if len(iv.group()) >= 16:
-                            pattern = pattern16
+                            pattern = pattern16 if is_deep else pattern_common
                         else:
                             continue
 
                         for match_iv in pattern.finditer(iv.group()):
 
-                            ciphertext_cbc = aes_decrypt_cbc(match.group(1),
+                            ciphertext_cbc = aes_decrypt_cbc(match.group(1) if is_deep else match.group(0),
                                                              target_str,
-                                                             match_iv.group(1), text_know, text_know_type, queue)
+                                                             match_iv.group(1) if is_deep else match_iv.group(0),
+                                                             text_know, text_know_type, queue)
 
                             if ciphertext_cbc:
                                 return queue.put(algo_input + '_1')
@@ -666,73 +642,78 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
                 message_log(i + 1, count_4_totle, queue)  # 批量更新进度条
 
             if len(key.group()) >= 8:
-                pattern = pattern8
+                pattern = pattern8 if is_deep else pattern_common
             else:
                 continue
 
             for match in pattern.finditer(key.group()):
-                ciphertext_ecb = des_decrypt_ecb(match.group(1), target_str, text_know, text_know_type, queue)
+                ciphertext_ecb = des_decrypt_ecb(match.group(1) if is_deep else match.group(0), target_str, text_know,
+                                                 text_know_type, queue)
                 if ciphertext_ecb:
                     return queue.put(algo_input + '_1')
 
                 is_use_cbc = False
-                des_decrypt_cbc(match.group(1), target_str,
+                des_decrypt_cbc(match.group(1) if is_deep else match.group(0), target_str,
                                 b'01234567', text_know, text_know_type, queue)
                 if is_use_cbc:
                     send('开始推理iv', queue)
 
                     for iv in re.finditer(b'[\x01-\xff]{4,}', all_files):
                         if len(iv.group()) >= 8:
-                            pattern = pattern8
+                            pattern = pattern8 if is_deep else pattern_common
                         else:
                             continue
 
                         for match_iv in pattern.finditer(iv.group()):
 
-                            ciphertext_cbc = des_decrypt_cbc(match.group(1), target_str,
-                                                             match_iv.group(1), text_know, text_know_type, queue)
+                            ciphertext_cbc = des_decrypt_cbc(match.group(1) if is_deep else match.group(0), target_str,
+                                                             match_iv.group(1) if is_deep else match_iv.group(0),
+                                                             text_know, text_know_type, queue)
                             if ciphertext_cbc:
                                 return queue.put(algo_input + '_1')
 
     if algo_input == '3des':
 
-        pattern8 = re.compile(br'(?=(.{8}))')
         pattern24 = re.compile(br'(?=(.{24}))')
-
+        pattern16 = re.compile(rb'(?=(.{16}))')
+        pattern8 = re.compile(br'(?=(.{8}))')
         message_totle(count_4_totle, queue)
         for i, key in enumerate(re.finditer(b'[\x01-\xff]{4,}', all_files)):
             if (i + 1) % max(1, count_4_totle // 100) == 0 or i == count_4_totle - 1:
                 message_log(i + 1, count_4_totle, queue)  # 批量更新进度条
 
-            if 8 <= len(key.group()) < 24:
-                pattern = pattern8
-
+            if 16 <= len(key.group()) < 24:
+                pattern = pattern16 if is_deep else pattern_common
             elif len(key.group()) >= 24:
-                pattern = pattern24
+                pattern = pattern24 if is_deep else pattern_common
+
             else:
                 continue
 
             for match in pattern.finditer(key.group()):
 
-                ciphertext_ecb = triple_des_decrypt_ecb(match.group(1), target_str, text_know, text_know_type, queue)
+                ciphertext_ecb = triple_des_decrypt_ecb(match.group(1) if is_deep else match.group(0), target_str,
+                                                        text_know, text_know_type, queue)
                 if ciphertext_ecb:
                     return queue.put(algo_input + '_1')
 
                 is_use_cbc = False
 
-                triple_des_decrypt_cbc(match.group(1), target_str,
+                triple_des_decrypt_cbc(match.group(1) if is_deep else match.group(0), target_str,
                                        b'01234567', text_know, text_know_type, queue)
                 if is_use_cbc:
                     send('开始推理iv', queue)
                     for iv in re.finditer(b'[\x01-\xff]{4,}', all_files):
 
                         if len(iv.group()) >= 8:
-                            pattern = pattern8
+                            pattern = pattern8 if is_deep else pattern_common
                         else:
                             continue
 
                         for match_iv in pattern.finditer(iv.group()):
-                            ciphertext_cbc = triple_des_decrypt_cbc(match.group(1), target_str, match_iv.group(1),
+                            ciphertext_cbc = triple_des_decrypt_cbc(match.group(1) if is_deep else match.group(0),
+                                                                    target_str,
+                                                                    match_iv.group(1) if is_deep else match_iv.group(0),
                                                                     text_know, text_know_type, queue)
                             if ciphertext_cbc:
                                 return queue.put(algo_input + '_1')
@@ -830,7 +811,7 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
                         if computed_hmac == target_str:
                             send(f"找到匹配的密钥：{hmac_key.group()}", queue)
                             send(f"找到匹配的明文：{decoded_str}", queue)
-                            return queue.put('hmac'+algo_input + '_1')
+                            return queue.put('hmac' + algo_input + '_1')
 
     return queue.put(algo_input + '_0')
 
@@ -857,7 +838,7 @@ class WorkerAllThread(QThread):
     message_log = pyqtSignal(tuple)
     message_totle = pyqtSignal(int)
 
-    def __init__(self, file_path, hash_name, text_know, text_unknow, text_know_type, is_all, parent=None):
+    def __init__(self, file_path, hash_name, text_know, text_unknow, text_know_type, is_all, is_deep, parent=None):
         super().__init__(parent)
         self.file_path = file_path
         self.hash_name = hash_name
@@ -865,6 +846,7 @@ class WorkerAllThread(QThread):
         self.text_unknow = text_unknow
         self.text_know_type = text_know_type
         self.is_all = is_all
+        self.is_deep = is_deep
         self.p = None
         self.processes_list = []
 
@@ -889,9 +871,7 @@ class WorkerAllThread(QThread):
         return int(file_size_mb)
 
     def run(self):
-
         if self.is_all:
-
             queue = multiprocessing.Queue()
             self.processes_list = []
             hash_name_list = ["哈希系列", "AES", "DES", "3DES", "SM4"]
@@ -909,6 +889,7 @@ class WorkerAllThread(QThread):
                 if self.get_file_size_in_mb('memory_data.bin') < 400:
                     self.p = multiprocessing.Process(target=find_matching_plaintext, args=(
                         dump_file, target_hash, algo_input, use_hmac, self.text_know, self.text_know_type, queue,
+                        self.is_deep,
                         True if name == '哈希系列' else False))
                     self.processes_list.append(self.p)
                     self.p.start()
@@ -919,6 +900,7 @@ class WorkerAllThread(QThread):
                     self.send('模型较大使用单进程逐个推理\n')
                     self.p = multiprocessing.Process(target=find_matching_plaintext, args=(
                         dump_file, target_hash, algo_input, use_hmac, self.text_know, self.text_know_type, queue,
+                        self.is_deep,
                         True if name == '哈希系列' else False))
                     self.processes_list.append(self.p)
                     self.p.start()
@@ -991,7 +973,7 @@ class WorkerAllThread(QThread):
                 algo_input = algo_input
 
             self.p = multiprocessing.Process(target=find_matching_plaintext, args=(
-                dump_file, target_hash, algo_input, use_hmac, self.text_know, self.text_know_type, queue))
+                dump_file, target_hash, algo_input, use_hmac, self.text_know, self.text_know_type, queue, self.is_deep))
             self.p.start()
             while self.p.is_alive() or not queue.empty():
 
