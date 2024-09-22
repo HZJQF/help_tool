@@ -280,6 +280,8 @@ class MainWindow(QMainWindow):
         else:
             is_deep = 1
 
+
+
         if self.task_button.text() == "停止推理":
             if self.worker:
                 self.worker.stop()
@@ -288,7 +290,7 @@ class MainWindow(QMainWindow):
             self.task_button.setText('开始推理')
             return
 
-        if not self.file_path:
+        if not self.file_path or  not  isinstance(self.file_path ,dict):
             self.statusBar().showMessage("模型为空请加载模型", 5000)
             return
 
@@ -444,7 +446,7 @@ class MainWindow(QMainWindow):
         try:
             # 清空下拉框中的所有现有条目
             self.comboBox.clear()
-            for pid in self.get_command_result('ps -A |grep u0_a').splitlines():
+            for pid in self.get_command_result('ps -A |grep u0_').splitlines():
                 a = re.findall(pattern, pid)[0]
                 processes.append((pid.split(' ')[-1], a[0], a[1]))
             processes = sorted(processes, key=lambda x: x[0].lower())
