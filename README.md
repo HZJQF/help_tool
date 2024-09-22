@@ -6,11 +6,26 @@
 
 ### 最新日志：
 
-1.推理引擎优化。
+1.新增选择本地模型。
 
-2.修复偶发性内存泄露。
+2.新增真机功能,需要root（模型比较大，比较消耗内存）。
 
-3.优化软件。
+- 进入源代码里面bin目录选择不同cpu架构进入目录执行下面adb 命令
+
+  ```
+  
+  adb push   dumpmm /data/local/tmp
+  adb shell
+  su
+  cd /data/local/tmp
+  chmod 777 dumpmm
+  ```
+
+  
+
+3.AES,DES,3DE,SM4加入深入模式和普通模式，防止加载时间过长。
+
+
 
 
 
