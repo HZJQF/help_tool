@@ -460,21 +460,30 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
     count_4_totle = dump_file.get('count_4_totle')
     with open(dump_file.get('all_files_path'), 'rb') as file:
         all_files = file.read()
-    pattern_common = re.compile(b'[ -~]{4,}')
+    pattern_all = re.compile(b'[\x01-\xff]{4,}')
+    pattern_common_8 = re.compile(b'[ -~]{8}')
+    pattern_common_16 = re.compile(b'[ -~]{16}')
+    pattern_common_24 = re.compile(b'[ -~]{24}')
+    pattern_common_32 = re.compile(b'[ -~]{32}')
+    pattern8 = re.compile(br'(?=(.{8}))')
+    pattern16 = re.compile(rb'(?=(.{16}))')
+    pattern24 = re.compile(rb'(?=(.{24}))')
+    pattern32 = re.compile(rb'(?=(.{32}))')
+
     message_end(1, queue)
     """在内存转储文件中搜索匹配的明文或密钥"""
 
     target_str = detect_format_and_convert_to_binary(target_str)
 
     if algo_input == 'sm4':
-        pattern16 = re.compile(br'(?=(.{16}))')
+
         message_totle(count_4_totle, queue)
-        for i, key in enumerate(re.finditer(b'[\x01-\xff]{4,}', all_files)):
+        for i, key in enumerate(pattern_all.finditer(all_files)):
             if (i + 1) % max(1, count_4_totle // 100) == 0 or i == count_4_totle - 1:
                 message_log(i + 1, count_4_totle, queue)  # 批量更新进度条
 
             if len(key.group()) >= 16:
-                pattern = pattern16 if is_deep else pattern_common
+                pattern = pattern16 if is_deep else pattern_common_16
 
             else:
                 continue
@@ -492,9 +501,9 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
                 if is_use_cbc:
                     send('开始推理iv', queue)
 
-                    for iv in re.finditer(b'[\x01-\xff]{4,}', all_files):
+                    for iv in pattern_all.finditer(all_files):
                         if len(iv.group()) >= 16:
-                            pattern = pattern16 if is_deep else pattern_common
+                            pattern = pattern16 if is_deep else pattern_common_16
                         else:
                             continue
 
@@ -560,7 +569,7 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
     if algo_input == '明文搜索':
         isfind = False
         message_totle(count_4_totle, queue)
-        for i, key in enumerate(re.finditer(b'[\x01-\xff]{4,}', all_files)):
+        for i, key in enumerate(pattern_all.finditer(all_files)):
             if (i + 1) % max(1, count_4_totle // 100) == 0 or i == count_4_totle - 1:
                 message_log(i + 1, count_4_totle, queue)  # 批量更新进度条
 
@@ -587,21 +596,17 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
 
     if algo_input == 'aes':
 
-        pattern16 = re.compile(rb'(?=(.{16}))')
-        pattern24 = re.compile(rb'(?=(.{24}))')
-        pattern32 = re.compile(rb'(?=(.{32}))')
-
         message_totle(count_4_totle, queue)
-        for i, key in enumerate(re.finditer(b'[\x01-\xff]{4,}', all_files)):
+        for i, key in enumerate(pattern_all.finditer(all_files)):
             if (i + 1) % max(1, count_4_totle // 100) == 0 or i == count_4_totle - 1:
                 message_log(i + 1, count_4_totle, queue)  # 批量更新进度条
 
             if 16 <= len(key.group()) < 24:
-                pattern = pattern16 if is_deep else pattern_common
+                pattern = pattern16 if is_deep else pattern_common_16
             elif 24 <= len(key.group()) < 32:
-                pattern = pattern24 if is_deep else pattern_common
+                pattern = pattern24 if is_deep else pattern_common_24
             elif len(key.group()) >= 32:
-                pattern = pattern32 if is_deep else pattern_common
+                pattern = pattern32 if is_deep else pattern_common_32
             else:
                 continue
 
@@ -618,9 +623,9 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
                 if is_use_cbc:
                     send('开始推理iv', queue)
 
-                    for iv in re.finditer(b'[\x01-\xff]{4,}', all_files):
+                    for iv in pattern_all.finditer(all_files):
                         if len(iv.group()) >= 16:
-                            pattern = pattern16 if is_deep else pattern_common
+                            pattern = pattern16 if is_deep else pattern_common_16
                         else:
                             continue
 
@@ -635,14 +640,13 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
                                 return queue.put(algo_input + '_1')
 
     if algo_input == 'des':
-        pattern8 = re.compile(br'(?=(.{8}))')
         message_totle(count_4_totle, queue)
-        for i, key in enumerate(re.finditer(b'[\x01-\xff]{4,}', all_files)):
+        for i, key in enumerate(pattern_all.finditer(all_files)):
             if (i + 1) % max(1, count_4_totle // 100) == 0 or i == count_4_totle - 1:
                 message_log(i + 1, count_4_totle, queue)  # 批量更新进度条
 
             if len(key.group()) >= 8:
-                pattern = pattern8 if is_deep else pattern_common
+                pattern = pattern8 if is_deep else pattern_common_8
             else:
                 continue
 
@@ -658,9 +662,9 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
                 if is_use_cbc:
                     send('开始推理iv', queue)
 
-                    for iv in re.finditer(b'[\x01-\xff]{4,}', all_files):
+                    for iv in pattern_all.finditer(all_files):
                         if len(iv.group()) >= 8:
-                            pattern = pattern8 if is_deep else pattern_common
+                            pattern = pattern8 if is_deep else pattern_common_8
                         else:
                             continue
 
@@ -674,18 +678,15 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
 
     if algo_input == '3des':
 
-        pattern24 = re.compile(br'(?=(.{24}))')
-        pattern16 = re.compile(rb'(?=(.{16}))')
-        pattern8 = re.compile(br'(?=(.{8}))')
         message_totle(count_4_totle, queue)
-        for i, key in enumerate(re.finditer(b'[\x01-\xff]{4,}', all_files)):
+        for i, key in enumerate(pattern_all.finditer(all_files)):
             if (i + 1) % max(1, count_4_totle // 100) == 0 or i == count_4_totle - 1:
                 message_log(i + 1, count_4_totle, queue)  # 批量更新进度条
 
             if 16 <= len(key.group()) < 24:
-                pattern = pattern16 if is_deep else pattern_common
+                pattern = pattern16 if is_deep else pattern_common_16
             elif len(key.group()) >= 24:
-                pattern = pattern24 if is_deep else pattern_common
+                pattern = pattern24 if is_deep else pattern_common_24
 
             else:
                 continue
@@ -703,10 +704,10 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
                                        b'01234567', text_know, text_know_type, queue)
                 if is_use_cbc:
                     send('开始推理iv', queue)
-                    for iv in re.finditer(b'[\x01-\xff]{4,}', all_files):
+                    for iv in pattern_all.finditer(all_files):
 
                         if len(iv.group()) >= 8:
-                            pattern = pattern8 if is_deep else pattern_common
+                            pattern = pattern8 if is_deep else pattern_common_8
                         else:
                             continue
 
@@ -726,7 +727,7 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
                 algo_input = name
 
                 message_totle(count_4_totle, queue)
-                for i, key in enumerate(re.finditer(b'[\x01-\xff]{4,}', all_files)):
+                for i, key in enumerate(pattern_all.finditer(all_files)):
                     if (i + 1) % max(1, count_4_totle // 100) == 0 or i == count_4_totle - 1:
                         message_log(i + 1, count_4_totle, queue)  # 批量更新进度条
 
@@ -755,7 +756,7 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
         else:
             if not use_hmac:
                 message_totle(count_4_totle, queue)
-                for i, key in enumerate(re.finditer(b'[\x01-\xff]{4,}', all_files)):
+                for i, key in enumerate(pattern_all.finditer(all_files)):
                     if (i + 1) % max(1, count_4_totle // 100) == 0 or i == count_4_totle - 1:
                         message_log(i + 1, count_4_totle, queue)  # 批量更新进度条
 
@@ -783,7 +784,7 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
             else:
 
                 message_totle(count_4_totle, queue)
-                for i, key in enumerate(re.finditer(b'[\x01-\xff]{4,}', all_files)):
+                for i, key in enumerate(pattern_all.finditer(all_files)):
                     if (i + 1) % max(1, count_4_totle // 100) == 0 or i == count_4_totle - 1:
                         message_log(i + 1, count_4_totle, queue)  # 批量更新进度条
 
@@ -804,7 +805,7 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
                     if text_know and text_know not in decoded_str:
                         continue
 
-                    for hmac_key in re.finditer(b'[\x01-\xff]{4,}', all_files):
+                    for hmac_key in pattern_all.finditer(all_files):
                         # 尝试提取的字符串作为密钥，使用已知的消息进行 HMAC 并与目标 HMAC 值比较
                         computed_hmac = compute_hmac(decoded_str, hmac_key.group(),
                                                      algo_input)  # 消息是 known_message，密钥是 decoded_str
