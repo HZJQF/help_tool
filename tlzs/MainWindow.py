@@ -6,7 +6,7 @@ import keyboard
 import psutil
 from PyQt5.QtGui import QIntValidator
 from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QComboBox, QStackedWidget, \
-    QGridLayout, QButtonGroup, QGroupBox, QRadioButton, QTextEdit, QProgressBar, QAction, QMessageBox, QLabel, \
+    QGridLayout, QButtonGroup, QGroupBox, QRadioButton, QTextEdit, QProgressBar, QAction, QMessageBox, \
     QFileDialog
 import CustomTextEdit
 import Realphone_Thead
