@@ -57,7 +57,7 @@
 
 ### 交流群：
 
-![37a1cb1d4bc0ac38fb80a857505a2e45_720](./imgs/37a1cb1d4bc0ac38fb80a857505a2e45_720.jpg)
+![37a1cb1d4bc0ac38fb80a857505a2e45_720](imgs/37a1cb1d4bc0ac38fb80a857505a2e45_720.jpg)
 
 
 
