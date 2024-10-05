@@ -260,8 +260,8 @@ class Part_Thread(QThread):
                                     wx_pid_list.append(pid_.pid)
 
                         if wx_pid_list:
-                            for pid in child_processes:
-                                self.suspend_process(pid.pid)
+                            for pid in wx_pid_list:
+                                self.suspend_process(pid)
                             for pid in wx_pid_list:
                                 process_handle = self.open_process(pid)
                                 for mbi in self.get_memory_info(process_handle):
