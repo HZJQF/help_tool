@@ -1,45 +1,6 @@
-# 定义必要的常量
-import ctypes
 import re
 import subprocess
-from ctypes import wintypes
-
 from PyQt5.QtCore import QThread, pyqtSignal
-
-PROCESS_ALL_ACCESS = 0x001F0FFF
-PROCESS_QUERY_INFORMATION = 0x0400
-PROCESS_VM_READ = 0x0010
-THREAD_SUSPEND_RESUME = 0x0002
-TH32CS_SNAPTHREAD = 0x00000004
-
-
-class THREADENTRY32(ctypes.Structure):
-    _fields_ = [
-        ("dwSize", wintypes.DWORD),
-        ("cntUsage", wintypes.DWORD),
-        ("th32ThreadID", wintypes.DWORD),
-        ("th32OwnerProcessID", wintypes.DWORD),
-        ("tpBasePri", wintypes.LONG),
-        ("tpDeltaPri", wintypes.LONG),
-        ("dwFlags", wintypes.DWORD)
-    ]
-
-    # 定义 MEMORY_BASIC_INFORMATION 结构体
-
-
-class MEMORY_BASIC_INFORMATION(ctypes.Structure):
-    _fields_ = [
-        ("BaseAddress", ctypes.c_void_p),
-        ("AllocationBase", ctypes.c_void_p),
-        ("AllocationProtect", wintypes.DWORD),
-        ("RegionSize", ctypes.c_size_t),
-        ("State", wintypes.DWORD),
-        ("Protect", wintypes.DWORD),
-        ("Type", wintypes.DWORD)
-    ]
-
-    def __str__(self):
-        return f"BaseAddress: {self.BaseAddress:#x}, RegionSize: {self.RegionSize:#x}"
 
 
 class Realphone_Thead(QThread):
