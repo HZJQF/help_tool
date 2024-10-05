@@ -134,12 +134,14 @@ class MainWindow(QMainWindow):
         self.radio_button21 = QRadioButton("普通模式", self)
         self.radio_button22 = QRadioButton("深入模式", self)
         self.radio_button23 = QRadioButton("选择本地模型", self)
+        self.radio_button24 = QRadioButton("WX小程序", self)
 
         self.radio_button12.toggled.connect(self.on_radio_button_toggled)
         self.radio_button13.toggled.connect(self.on_radio_button_toggled)
         self.radio_button15.toggled.connect(self.on_radio_button_toggled)
         self.radio_button16.toggled.connect(self.on_radio_button_toggled)
         self.radio_button23.toggled.connect(self.on_radio_button_toggled)
+        self.radio_button24.toggled.connect(self.on_radio_button_toggled)
 
         self.QRadioButton_layout.addWidget(self.radio_button1, 0, 0)
         self.QRadioButton_layout.addWidget(self.radio_button2, 0, 1)
@@ -163,7 +165,9 @@ class MainWindow(QMainWindow):
 
         self.QRadioButton_layout4.addWidget(self.radio_button15, 0, 2)
         self.QRadioButton_layout4.addWidget(self.radio_button16)
+        self.QRadioButton_layout4.addWidget(self.radio_button24)
         self.QRadioButton_layout4.addWidget(self.radio_button23)
+
 
         self.button_group.addButton(self.radio_button1)
         self.button_group.addButton(self.radio_button2)
@@ -203,6 +207,7 @@ class MainWindow(QMainWindow):
         self.button_group3.addButton(self.radio_button15)
         self.button_group3.addButton(self.radio_button16)
         self.button_group3.addButton(self.radio_button23)
+        self.button_group3.addButton(self.radio_button24)
 
         self.text_knowedit = QTextEdit(self)
         self.text_knowedit.setPlaceholderText("在这里输入你知道的部分明文...")  # 设置占位符文本
@@ -280,8 +285,6 @@ class MainWindow(QMainWindow):
         else:
             is_deep = 1
 
-
-
         if self.task_button.text() == "停止推理":
             if self.worker:
                 self.worker.stop()
@@ -290,7 +293,7 @@ class MainWindow(QMainWindow):
             self.task_button.setText('开始推理')
             return
 
-        if not self.file_path or  not  isinstance(self.file_path ,dict):
+        if not self.file_path or not isinstance(self.file_path, dict):
             self.statusBar().showMessage("模型为空请加载模型", 5000)
             return
 
@@ -503,6 +506,10 @@ class MainWindow(QMainWindow):
             self.pid = None
             self.stacked_widget.setCurrentIndex(0)
 
+        elif self.button_group3.checkedButton().text() == "WX小程序":
+            self.button.hide()
+            self.stacked_widget.hide()
+            self.pid = None
 
 
         else:
@@ -621,6 +628,17 @@ class MainWindow(QMainWindow):
                 self.progress_bar.show()
                 return
 
+        if self.button_group3.checkedButton().text() == "WX小程序":
+            self.task_button.setEnabled(False)
+            self.button2.setEnabled(False)
+            self.Part_worker = Part_Thread.Part_Thread(
+                str("WX小程序"))
+            self.Part_worker.Part_changed.connect(self.append_message)
+            self.Part_worker.Part_end.connect(self.Part_end)
+            self.Part_worker.Part_log.connect(self.Part_log)
+            self.Part_worker.Part_totle.connect(self.Part_totle)
+            self.Part_worker.start()
+            self.progress_bar.show()
 
         pid = self.pid
 
@@ -631,7 +649,7 @@ class MainWindow(QMainWindow):
                 pid = int(self.textbox.text())
 
         if not pid:
-            if  self.button_group3.checkedButton().text() == "选择本地模型":
+            if self.button_group3.checkedButton().text() == "选择本地模型":
                 self.statusBar().showMessage(f"没有找到模型", 5000)
             else:
                 self.statusBar().showMessage(f"没有找到进程", 5000)
@@ -662,7 +680,6 @@ class MainWindow(QMainWindow):
             self.text_messageedit.append(f"成功！加载成功")
             self.statusBar().showMessage("加载成功", 5000)
         else:
-
             self.statusBar().showMessage("失败！加载失败", 5000)
 
     def Part_log(self, value):
