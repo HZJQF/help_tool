@@ -334,6 +334,7 @@ def triple_des_decrypt_ecb(key, ciphertext, text_know, text_know_type, queue):
         return True
     except:
         pass
+
     try:
         padding = 'zero'
         data = data.rstrip(b'\0')
@@ -407,13 +408,13 @@ def triple_des_decrypt_cbc(key, ciphertext, iv, text_know, text_know_type, queue
 def compute_hash(s, hash_algo):
     """根据指定的哈希算法计算字符串的哈希值"""
     hash_obj = hashlib.new(hash_algo)
-    hash_obj.update(s.encode())
+    hash_obj.update(s)
     return hash_obj.digest()
 
 
 def compute_hmac(s, key, hash_algo):
     """根据指定的哈希算法和密钥计算 HMAC 值"""
-    hmac_obj = hmac.new(key, s.encode(), hash_algo)
+    hmac_obj = hmac.new(key, s, hash_algo)
     return hmac_obj.digest()
 
 
@@ -460,7 +461,7 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
     count_4_totle = dump_file.get('count_4_totle')
     with open(dump_file.get('all_files_path'), 'rb') as file:
         all_files = file.read()
-    pattern_all = re.compile(b'[\x01-\xff]{4,}')
+    pattern_all = re.compile(b'[ -~\x80-\xff]{4,}')
     pattern_common_8 = re.compile(b'[ -~]{8}')
     pattern_common_16 = re.compile(b'[ -~]{16}')
     pattern_common_24 = re.compile(b'[ -~]{24}')
@@ -569,7 +570,7 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
     if algo_input == '明文搜索':
         isfind = False
         message_totle(count_4_totle, queue)
-        for i, key in enumerate(pattern_all.finditer(all_files)):
+        for i, key in enumerate(re.compile(rb'[\s -~\x80-\xff]{4,}').finditer(all_files)):
             if (i + 1) % max(1, count_4_totle // 100) == 0 or i == count_4_totle - 1:
                 message_log(i + 1, count_4_totle, queue)  # 批量更新进度条
 
@@ -731,27 +732,29 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
                     if (i + 1) % max(1, count_4_totle // 100) == 0 or i == count_4_totle - 1:
                         message_log(i + 1, count_4_totle, queue)  # 批量更新进度条
 
-                    try:
-                        if text_know_type == 'json格式':
-                            if not is_valid_json(key.group().decode()):
-                                continue
-                        decoded_str = key.group().decode('utf-8')
-                    except UnicodeDecodeError:
-                        try:
-                            if text_know_type == 'json格式':
-                                if not is_valid_json(key.group().decode('gbk')):
-                                    continue
-                            decoded_str = key.group().decode('gbk')
-                        except UnicodeDecodeError:
-                            continue
-
-                    if text_know and text_know not in decoded_str:
+                    if text_know and text_know.encode() not in key.group() and text_know.encode(
+                            "gbk") not in key.group():
                         continue
 
-                    if compute_hash(decoded_str, algo_input) == target_str:
-                        send(f"找到匹配的明文：{decoded_str}", queue)
-
-                        return queue.put(algo_input + '_1')
+                    if compute_hash(key.group(), algo_input) == target_str:
+                        try:
+                            if text_know_type == 'json格式':
+                                if not is_valid_json(key.group().decode()):
+                                    continue
+                            decoded_str = key.group().decode('utf-8')
+                            send(f"找到匹配的明文(utf-8)：{decoded_str}", queue)
+                            return queue.put(algo_input + '_1')
+                        except UnicodeDecodeError:
+                            try:
+                                if text_know_type == 'json格式':
+                                    if not is_valid_json(key.group().decode('gbk')):
+                                        continue
+                                decoded_str = key.group().decode('gbk')
+                                send(f"找到匹配的明文(gbk)：{decoded_str}", queue)
+                                return queue.put(algo_input + '_1')
+                            except UnicodeDecodeError:
+                                send(f"找到匹配的二进制：{key.group()}", queue)
+                                return queue.put(algo_input + '_1')
 
         else:
             if not use_hmac:
@@ -760,27 +763,31 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
                     if (i + 1) % max(1, count_4_totle // 100) == 0 or i == count_4_totle - 1:
                         message_log(i + 1, count_4_totle, queue)  # 批量更新进度条
 
-                    try:
-                        if text_know_type == 'json格式':
-                            if not is_valid_json(key.group().decode()):
-                                continue
-                        decoded_str = key.group().decode('utf-8')
-                    except UnicodeDecodeError:
-                        try:
-                            if text_know_type == 'json格式':
-                                if not is_valid_json(key.group().decode('gbk')):
-                                    continue
-                            decoded_str = key.group().decode('gbk')
-                        except UnicodeDecodeError:
-                            continue
-
-                    if text_know and text_know not in decoded_str:
+                    if text_know and text_know.encode() not in key.group() and text_know.encode(
+                            "gbk") not in key.group():
                         continue
 
-                    if compute_hash(decoded_str, algo_input) == target_str:
-                        send(f"找到匹配的明文：{decoded_str}", queue)
+                    if compute_hash(key.group(), algo_input) == target_str:
+                        try:
+                            if text_know_type == 'json格式':
+                                if not is_valid_json(key.group().decode()):
+                                    continue
+                            decoded_str = key.group().decode('utf-8')
+                            send(f"找到匹配的明文(utf-8)：{decoded_str}", queue)
+                            return queue.put(algo_input + '_1')
+                        except UnicodeDecodeError:
+                            try:
+                                if text_know_type == 'json格式':
+                                    if not is_valid_json(key.group().decode('gbk')):
+                                        continue
+                                decoded_str = key.group().decode('gbk')
+                                send(f"找到匹配的明文(gbk)：{decoded_str}", queue)
+                                return queue.put(algo_input + '_1')
+                            except UnicodeDecodeError:
+                                send(f"找到匹配的二进制：{key.group()}", queue)
+                                return queue.put(algo_input + '_1')
 
-                        return queue.put(algo_input + '_1')
+
             else:
 
                 message_totle(count_4_totle, queue)
@@ -788,31 +795,35 @@ def find_matching_plaintext(dump_file, target_str, algo_input, use_hmac, text_kn
                     if (i + 1) % max(1, count_4_totle // 100) == 0 or i == count_4_totle - 1:
                         message_log(i + 1, count_4_totle, queue)  # 批量更新进度条
 
-                    try:
-                        if text_know_type == 'json格式':
-                            if not is_valid_json(key.group().decode()):
-                                continue
-                        decoded_str = key.group().decode('utf-8')
-                    except UnicodeDecodeError:
-                        try:
-                            if text_know_type == 'json格式':
-                                if not is_valid_json(key.group().decode('gbk')):
-                                    continue
-                            decoded_str = key.group().decode('gbk')
-                        except UnicodeDecodeError:
-                            continue
-
-                    if text_know and text_know not in decoded_str:
+                    if text_know and text_know.encode() not in key.group() and text_know.encode(
+                            "gbk") not in key.group():
                         continue
 
                     for hmac_key in pattern_all.finditer(all_files):
                         # 尝试提取的字符串作为密钥，使用已知的消息进行 HMAC 并与目标 HMAC 值比较
-                        computed_hmac = compute_hmac(decoded_str, hmac_key.group(),
+                        computed_hmac = compute_hmac(key.group(), hmac_key.group(),
                                                      algo_input)  # 消息是 known_message，密钥是 decoded_str
+
                         if computed_hmac == target_str:
                             send(f"找到匹配的密钥：{hmac_key.group()}", queue)
-                            send(f"找到匹配的明文：{decoded_str}", queue)
-                            return queue.put('hmac' + algo_input + '_1')
+                            try:
+                                if text_know_type == 'json格式':
+                                    if not is_valid_json(key.group().decode()):
+                                        continue
+                                decoded_str = key.group().decode('utf-8')
+                                send(f"找到匹配的明文(utf-8)：{decoded_str}", queue)
+                                return queue.put('hmac' + algo_input + '_1')
+                            except UnicodeDecodeError:
+                                try:
+                                    if text_know_type == 'json格式':
+                                        if not is_valid_json(key.group().decode('gbk')):
+                                            continue
+                                    decoded_str = key.group().decode('gbk')
+                                    send(f"找到匹配的明文(gbk)：{decoded_str}", queue)
+                                    return queue.put('hmac' + algo_input + '_1')
+                                except UnicodeDecodeError:
+                                    send(f"找到匹配的二进制：{key.group()}", queue)
+                                    return queue.put('hmac' + algo_input + '_1')
 
     return queue.put(algo_input + '_0')
 
