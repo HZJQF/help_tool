@@ -4,6 +4,7 @@ import io
 import re
 from ctypes import wintypes
 
+import psutil
 from PyQt5.QtCore import QThread, pyqtSignal
 
 PROCESS_ALL_ACCESS = 0x001F0FFF
@@ -177,7 +178,7 @@ class Part_Thread(QThread):
             file_dict = {}
             # strings = self.process_memory_data(self.memory_data, 1024, b'[\x01-\xff]{4,}', 4)
             self.Part_totle.emit(0)
-            matches = re.finditer(b'[\x01-\xff]{4,}', self.memory_data)
+            matches = re.finditer(b'[ -~\x80-\xff]{4,}', self.memory_data)
             count_4_totle = 0
             for match in matches:
                 count_4_totle += 1
@@ -236,14 +237,66 @@ class Part_Thread(QThread):
 
     def run(self):
         if isinstance(self.pid, str):
-            try:
+            if self.pid == "小程序":
+                self.memory_data = bytearray()
+                wx_pid_list = []
+                try:
+                    with open('memory_data.bin', "wb") as f:
+                        pl = psutil.pids()
+                        self.pid = None
+                        for pid in pl:
+
+                            if 'WeChat' in psutil.Process(pid).name():
+                                # 暂停进程
+                                self.suspend_process(pid)
+                                wx_pid_list.append(pid)
+
+                        for pid in wx_pid_list:
+                            process_handle = self.open_process(pid)
+                            if not process_handle:
+                                continue
+
+                            for mbi in self.get_memory_info(process_handle):
+                                if mbi.State == 0x1000 and mbi.Protect == 0x04:
+                                    memory = self.read_process_memory(process_handle, mbi.BaseAddress,
+                                                                      mbi.RegionSize)
+                                    if memory:
+                                        f.write(memory)
+                                        self.memory_data.extend(memory)  # 将内存数据追加到 memory_data 中
+                            # 恢复进程
+                            self.resume_process(pid)
+
+                except Exception as e:
+                    self.send(f"程序运行时出错: {e}")
+                    # 恢复进程
+                    self.send("正在恢复进程...")
+                    self.resume_process(pid)
+
+                file_dict = {}
+                self.Part_totle.emit(0)
+                matches = re.finditer(b'[ -~\x80-\xff]{4,}', self.memory_data)
+                count_4_totle = 0
+                for match in matches:
+                    count_4_totle += 1
+                file_dict['count_4_totle'] = count_4_totle
+                file_dict['all_files_path'] = 'memory_data.bin'
+
+                if not count_4_totle:
+                    self.send("模型为空！可能未开启WX")
+                    self.Part_end.emit({})
+                else:
+
+                    self.Part_end.emit(file_dict)
+
+            else:
+                try:
 
                     file_path = self.pid
                     with open(file_path, 'rb') as file:
                         all_files = file.read()
                     file_dict = {}
                     self.Part_totle.emit(0)
-                    matches = re.finditer(b'[\x01-\xff]{4,}', all_files)
+                    matches = re.finditer(b'[ -~\x80-\xff]{4,}', all_files)
                     count_4_totle = 0
                     for match in matches:
                         count_4_totle += 1
@@ -251,8 +304,12 @@ class Part_Thread(QThread):
                     file_dict['count_4_totle'] = count_4_totle
                     file_dict['all_files_path'] = file_path
                     self.Part_end.emit(file_dict)
-            except Exception as e:
-                self.send(f"加载出错: {e}")
+
+                except Exception as e:
+                    self.send(f"加载出错: {e}")
+                    self.Part_end.emit({})
+
+
         else:
 
             try:
@@ -267,13 +324,10 @@ class Part_Thread(QThread):
                 self.send("正在恢复进程...")
                 self.resume_process(self.pid)
 
-            except ValueError:
-                self.send("输入的 PID 无效。")
             except Exception as e:
-                self.send(f"程序运行时出错: {e}")
+                self.send(f"加载模型时出错: {e}")
                 # 恢复进程
                 self.send("正在恢复进程...")
                 self.resume_process(self.pid)
-
                 self.Part_end.emit({})
                 return
