@@ -235,42 +235,49 @@ class Part_Thread(QThread):
     def send(self, message):
         self.Part_changed.emit(f"{message}")
 
+    def find_child_processes(self, pid):
+        try:
+            parent = psutil.Process(pid)  # 根据 PID 获取父进程对象
+            children = parent.children(recursive=True)  # 获取所有子进程，recursive=True表示递归查找所有层级的子进程
+            return children
+        except psutil.NoSuchProcess:
+            print(f"No process with PID {pid} found.")
+            return []
+
     def run(self):
         if isinstance(self.pid, str):
-            if self.pid == "小程序":
+            if self.pid == "WX小程序":
                 self.memory_data = bytearray()
                 wx_pid_list = []
                 try:
                     with open('memory_data.bin', "wb") as f:
                         pl = psutil.pids()
-                        self.pid = None
                         for pid in pl:
-
-                            if 'WeChat' in psutil.Process(pid).name():
-                                # 暂停进程
-                                self.suspend_process(pid)
+                            if 'WeChat.exe' in psutil.Process(pid).name():
                                 wx_pid_list.append(pid)
+                                child_processes = self.find_child_processes(pid)
+                                for pid_ in child_processes:
+                                    wx_pid_list.append(pid_.pid)
 
-                        for pid in wx_pid_list:
-                            process_handle = self.open_process(pid)
-                            if not process_handle:
-                                continue
-
-                            for mbi in self.get_memory_info(process_handle):
-                                if mbi.State == 0x1000 and mbi.Protect == 0x04:
-                                    memory = self.read_process_memory(process_handle, mbi.BaseAddress,
-                                                                      mbi.RegionSize)
-                                    if memory:
-                                        f.write(memory)
-                                        self.memory_data.extend(memory)  # 将内存数据追加到 memory_data 中
-                            # 恢复进程
-                            self.resume_process(pid)
+                        if wx_pid_list:
+                            for pid in child_processes:
+                                self.suspend_process(pid.pid)
+                            for pid in wx_pid_list:
+                                process_handle = self.open_process(pid)
+                                for mbi in self.get_memory_info(process_handle):
+                                    if mbi.State == 0x1000 and mbi.Protect == 0x04:
+                                        memory = self.read_process_memory(process_handle, mbi.BaseAddress,
+                                                                          mbi.RegionSize)
+                                        if memory:
+                                            f.write(memory)
+                                            self.memory_data.extend(memory)  # 将内存数据追加到 memory_data 中
+                                # 恢复进程
+                                self.resume_process(pid)
 
                 except Exception as e:
                     self.send(f"程序运行时出错: {e}")
-                    # 恢复进程
-                    self.send("正在恢复进程...")
-                    self.resume_process(pid)
+                    self.Part_end.emit({})
+                    return
 
                 file_dict = {}
                 self.Part_totle.emit(0)
@@ -285,7 +292,6 @@ class Part_Thread(QThread):
                     self.send("模型为空！可能未开启WX")
                     self.Part_end.emit({})
                 else:
-
                     self.Part_end.emit(file_dict)
 
             else:
