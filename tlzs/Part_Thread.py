@@ -3,7 +3,7 @@ import ctypes
 import io
 import re
 from ctypes import wintypes
-
+from multiprocessing import Manager, sharedctypes
 import psutil
 from PyQt5.QtCore import QThread, pyqtSignal
 
@@ -178,15 +178,11 @@ class Part_Thread(QThread):
             file_dict = {}
             # strings = self.process_memory_data(self.memory_data, 1024, b'[\x01-\xff]{4,}', 4)
             self.Part_totle.emit(0)
-            matches = re.finditer(b'[ -~\x80-\xff]{4,}', self.memory_data)
-            count_4_totle = 0
-            for match in matches:
-                count_4_totle += 1
 
-            file_dict['count_4_totle'] = count_4_totle
+            file_dict['count_4_totle'] = sum(1 for _ in re.finditer(b'[ -~\x80-\xff]{4,}', self.memory_data))
             file_dict['all_files_path'] = 'memory_data.bin'
             self.Part_end.emit(file_dict)
-
+            del self.memory_data
         except Exception as e:
             self.send(f"失败！内存转储失败: {e}")
 
@@ -244,6 +240,22 @@ class Part_Thread(QThread):
             print(f"No process with PID {pid} found.")
             return []
 
+    def split_iter(self, data, delimiter_pattern, pattern, ll):
+        # 记录起始位置
+        start = 0
+        # 使用 re.finditer() 找到所有分隔符位置
+        for match in re.finditer(delimiter_pattern, data):
+
+            if bool(re.fullmatch(pattern, data[start:match.start()])):
+                if 4 <= len(data[start:match.start()]) < ll:
+                    yield data[start:match.start()]
+            start = match.end()
+
+        # 返回最后一个部分
+        if bool(re.fullmatch(pattern, data[start:])):
+            if 4 <= len(data[start:]) < ll:
+                yield data[start:]
+
     def run(self):
         if isinstance(self.pid, str):
             if self.pid == "WX小程序":
@@ -258,7 +270,6 @@ class Part_Thread(QThread):
                                 child_processes = self.find_child_processes(pid)
                                 for pid_ in child_processes:
                                     wx_pid_list.append(pid_.pid)
-
                         if wx_pid_list:
                             for pid in wx_pid_list:
                                 self.suspend_process(pid)
@@ -278,17 +289,12 @@ class Part_Thread(QThread):
                     self.send(f"程序运行时出错: {e}")
                     self.Part_end.emit({})
                     return
-
                 file_dict = {}
                 self.Part_totle.emit(0)
-                matches = re.finditer(b'[ -~\x80-\xff]{4,}', self.memory_data)
-                count_4_totle = 0
-                for match in matches:
-                    count_4_totle += 1
-                file_dict['count_4_totle'] = count_4_totle
+                file_dict['count_4_totle'] = sum(1 for _ in re.finditer(b'[ -~\x80-\xff]{4,}', self.memory_data))
                 file_dict['all_files_path'] = 'memory_data.bin'
-
-                if not count_4_totle:
+                del self.memory_data
+                if not file_dict['count_4_totle']:
                     self.send("模型为空！可能未开启WX")
                     self.Part_end.emit({})
                 else:
@@ -299,18 +305,13 @@ class Part_Thread(QThread):
 
                     file_path = self.pid
                     with open(file_path, 'rb') as file:
-                        all_files = file.read()
+                        all_files = sharedctypes.RawArray('B', file.read())
                     file_dict = {}
                     self.Part_totle.emit(0)
-                    matches = re.finditer(b'[ -~\x80-\xff]{4,}', all_files)
-                    count_4_totle = 0
-                    for match in matches:
-                        count_4_totle += 1
-
-                    file_dict['count_4_totle'] = count_4_totle
+                    file_dict['count_4_totle'] = sum(1 for _ in re.finditer(b'[ -~\x80-\xff]{4,}', all_files))
                     file_dict['all_files_path'] = file_path
                     self.Part_end.emit(file_dict)
-
+                    del all_files
                 except Exception as e:
                     self.send(f"加载出错: {e}")
                     self.Part_end.emit({})
