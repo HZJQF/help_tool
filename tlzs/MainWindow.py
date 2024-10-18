@@ -117,7 +117,7 @@ class MainWindow(QMainWindow):
         self.radio_button8 = QRadioButton("DES", self)
         self.radio_button9 = QRadioButton("3DES", self)
 
-        self.radio_button10 = QRadioButton("普通格式", self)
+        self.radio_button10 = QRadioButton("无限制格式", self)
         self.radio_button11 = QRadioButton("json格式", self)
 
         self.radio_button12 = QRadioButton("自定义进程id", self)
@@ -135,6 +135,7 @@ class MainWindow(QMainWindow):
         self.radio_button22 = QRadioButton("深入模式", self)
         self.radio_button23 = QRadioButton("选择本地模型", self)
         self.radio_button24 = QRadioButton("WX小程序", self)
+        self.radio_button25 = QRadioButton("明文格式", self)
 
         self.radio_button12.toggled.connect(self.on_radio_button_toggled)
         self.radio_button13.toggled.connect(self.on_radio_button_toggled)
@@ -158,8 +159,10 @@ class MainWindow(QMainWindow):
         self.QRadioButton_layout2.addWidget(self.radio_button19)
         self.QRadioButton_layout2.addWidget(self.radio_button20)
 
-        self.QRadioButton_layout3.addWidget(self.radio_button10, 0, 0)
+        self.QRadioButton_layout3.addWidget(self.radio_button25, 0, 0)
         self.QRadioButton_layout3.addWidget(self.radio_button11, 0, 1)
+        self.QRadioButton_layout3.addWidget(self.radio_button10, 0, 2)
+
         self.QRadioButton_layout4.addWidget(self.radio_button13, 0, 0)
         self.QRadioButton_layout4.addWidget(self.radio_button12, 0, 1)
 
@@ -167,7 +170,6 @@ class MainWindow(QMainWindow):
         self.QRadioButton_layout4.addWidget(self.radio_button16)
         self.QRadioButton_layout4.addWidget(self.radio_button24)
         self.QRadioButton_layout4.addWidget(self.radio_button23)
-
 
         self.button_group.addButton(self.radio_button1)
         self.button_group.addButton(self.radio_button2)
@@ -202,6 +204,7 @@ class MainWindow(QMainWindow):
 
         self.button_group2.addButton(self.radio_button10)
         self.button_group2.addButton(self.radio_button11)
+        self.button_group2.addButton(self.radio_button25)
         self.button_group3.addButton(self.radio_button12)
         self.button_group3.addButton(self.radio_button13)
         self.button_group3.addButton(self.radio_button15)
@@ -234,7 +237,7 @@ class MainWindow(QMainWindow):
         self.task_button.clicked.connect(self.start_worker)
 
         self.progress_bar = QProgressBar(self)
-        self.progress_bar.setTextVisible(False)
+        self.progress_bar.setTextVisible(True)
         self.progress_bar.hide()
 
         self.setCentralWidget(self.central_widget)
@@ -256,7 +259,7 @@ class MainWindow(QMainWindow):
 
         self.vbox_layout.addLayout(self.hbox_layout_find)
         self.vbox_layout.addWidget(self.progress_bar)
-        self.radio_button10.setChecked(True)
+        self.radio_button25.setChecked(True)
         self.radio_button13.setChecked(True)
 
         self.register_hotkeys()
@@ -321,6 +324,7 @@ class MainWindow(QMainWindow):
             self.task_button.setText('停止推理')
 
         if self.hash_name == "全部算法(不含HMAC)":
+            is_deep = 0
             self.task_button.setEnabled(False)
             self.worker = WorkerThread.WorkerAllThread(self.file_path, self.hash_name, self.text_knowedit.toPlainText(),
                                                        self.text_unknowedit.toPlainText(),
@@ -366,9 +370,9 @@ class MainWindow(QMainWindow):
         self.progress_bar.setValue(0)
 
     def worker_log(self, value):
-
-        self.progress_bar.setValue(value[0])
-        self.progress_bar.setMaximum(value[1])
+        self.progress_bar.setValue(int(value[0]))
+        if value[1]:
+            self.progress_bar.setFormat(value[1])
 
     def append_message(self, message):
         self.text_messageedit.append(message)
@@ -545,9 +549,11 @@ class MainWindow(QMainWindow):
         if self.button_group.checkedButton().text() == "AES" or self.button_group.checkedButton().text() == "DES" or self.button_group.checkedButton().text() == "3DES" or self.button_group.checkedButton().text() == "SM4":
             self.radio_button21.show()
             self.radio_button22.show()
+
         else:
             self.radio_button21.hide()
             self.radio_button22.hide()
+
         if self.button_group.checkedButton().text() == "HMACMD5" or self.button_group.checkedButton().text() == "HMACSHA1" or self.button_group.checkedButton().text() == "HMACSHA256":
             self.text_knowedit.setPlaceholderText("在这里输入你知道的部分明文...(不填很慢)")  # 设置占位符文本
             return
