@@ -1,5 +1,7 @@
 import re
 import subprocess
+from multiprocessing import Manager, sharedctypes
+
 from PyQt5.QtCore import QThread, pyqtSignal
 
 
@@ -35,14 +37,10 @@ class Realphone_Thead(QThread):
             file_dict = {"erro": 0}
             with open('memory_data.bin', "rb") as f:
                 memory_data = f.read()
-            matches = re.finditer(b'[\x01-\xff]{4,}', memory_data)
-            count_4_totle = 0
-            for match in matches:
-                count_4_totle += 1
-            file_dict['count_4_totle'] = count_4_totle
+            file_dict['count_4_totle'] = sum(1 for _ in re.finditer(b'[ -~\x80-\xff]{4,}', memory_data))
             file_dict['all_files_path'] = 'memory_data.bin'
-
             self.Part_end.emit(file_dict)
+            del memory_data
 
         except subprocess.CalledProcessError as e:
             self.Part_end.emit({"erro": e.stderr})
