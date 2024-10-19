@@ -111,7 +111,7 @@ def sm4_decrypt_cbc(key, ciphertext, iv, text_know, text_know_type):
         if text_know_type == '明文格式':
             for i in range(4):
                 try:
-                    data[16 + i:].decode()
+                    data.decode() if len(data) <= 20 else data[16 + i:].decode()
                     is_use_cbc = True
                     break
                 except UnicodeDecodeError:
@@ -147,7 +147,7 @@ def sm4_decrypt_cbc(key, ciphertext, iv, text_know, text_know_type):
         if text_know_type == '明文格式':
             for i in range(4):
                 try:
-                    data[16 + i:].decode()
+                    data.decode() if len(data) <= 20 else data[16 + i:].decode()
                     is_use_cbc = True
                     break
                 except UnicodeDecodeError:
@@ -236,7 +236,7 @@ def aes_decrypt_cbc(key, ciphertext, iv, text_know, text_know_type):
         if text_know_type == '明文格式':
             for i in range(4):
                 try:
-                    data[16 + i:].decode()
+                    data.decode() if len(data) <= 20 else data[16 + i:].decode()
                     is_use_cbc = True
                     break
                 except UnicodeDecodeError:
@@ -273,7 +273,7 @@ def aes_decrypt_cbc(key, ciphertext, iv, text_know, text_know_type):
         if text_know_type == '明文格式':
             for i in range(4):
                 try:
-                    data[16 + i:].decode()
+                    data.decode() if len(data) <= 20 else data[16 + i:].decode()
                     is_use_cbc = True
                     break
                 except UnicodeDecodeError:
@@ -368,7 +368,7 @@ def des_decrypt_cbc(key, ciphertext, iv, text_know, text_know_type):
         if text_know_type == '明文格式':
             for i in range(4):
                 try:
-                    data[16 + i:].decode()
+                    data.decode() if len(data) <= 12 else data[8 + i:].decode()
                     is_use_cbc = True
                     break
                 except UnicodeDecodeError:
@@ -402,7 +402,7 @@ def des_decrypt_cbc(key, ciphertext, iv, text_know, text_know_type):
         if text_know_type == '明文格式':
             for i in range(4):
                 try:
-                    data[16 + i:].decode()
+                    data.decode() if len(data) <= 12 else data[8 + i:].decode()
                     is_use_cbc = True
                     break
                 except UnicodeDecodeError:
@@ -493,7 +493,7 @@ def triple_des_decrypt_cbc(key, ciphertext, iv, text_know, text_know_type):
         if text_know_type == '明文格式':
             for i in range(4):
                 try:
-                    data[16 + i:].decode()
+                    data.decode() if len(data) <= 12 else data[8 + i:].decode()
                     is_use_cbc = True
                     break
                 except UnicodeDecodeError:
@@ -528,7 +528,7 @@ def triple_des_decrypt_cbc(key, ciphertext, iv, text_know, text_know_type):
         if text_know_type == '明文格式':
             for i in range(4):
                 try:
-                    data[16 + i:].decode()
+                    data.decode() if len(data) <= 12 else data[8 + i:].decode()
                     is_use_cbc = True
                     break
                 except UnicodeDecodeError:
@@ -1132,6 +1132,7 @@ class WorkerAllThread(QThread):
                 self.p.join()
         except Exception as e:
             print(e)
+
     def run(self):
         file_size = os.path.getsize(self.file_path.get('all_files_path'))
         self.file_path['shared_all_file'] = sharedctypes.RawArray('B', file_size)
@@ -1278,4 +1279,3 @@ class WorkerAllThread(QThread):
                             self.p.join()
 
             self.message_end.emit(0)
-
