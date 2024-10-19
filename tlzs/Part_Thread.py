@@ -3,10 +3,8 @@ import ctypes
 import io
 import re
 from ctypes import wintypes
-from multiprocessing import Manager, sharedctypes
 import psutil
 from PyQt5.QtCore import QThread, pyqtSignal
-
 PROCESS_ALL_ACCESS = 0x001F0FFF
 PROCESS_QUERY_INFORMATION = 0x0400
 PROCESS_VM_READ = 0x0010
@@ -305,7 +303,7 @@ class Part_Thread(QThread):
 
                     file_path = self.pid
                     with open(file_path, 'rb') as file:
-                        all_files = sharedctypes.RawArray('B', file.read())
+                        all_files = file.read()
                     file_dict = {}
                     self.Part_totle.emit(0)
                     file_dict['count_4_totle'] = sum(1 for _ in re.finditer(b'[ -~\x80-\xff]{4,}', all_files))
