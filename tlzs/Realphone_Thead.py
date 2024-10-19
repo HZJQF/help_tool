@@ -1,7 +1,5 @@
 import re
 import subprocess
-from multiprocessing import Manager, sharedctypes
-
 from PyQt5.QtCore import QThread, pyqtSignal
 
 
